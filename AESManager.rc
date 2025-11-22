@@ -20,8 +20,8 @@ CLEAR_HISTORY BITMAP "gfx\\KasowanieHistorii.bmp"
 VIEW_PASS ICON "gfx\\PokazHaslo.ico"
 
 1 VERSIONINFO
-FILEVERSION 0,8,156,10566
-PRODUCTVERSION 0,8,156,10566
+FILEVERSION 0,8,284,10875
+PRODUCTVERSION 0,8,284,10875
 FILEOS VOS__WINDOWS32
 FILETYPE VFT_APP
 {
@@ -31,12 +31,12 @@ FILETYPE VFT_APP
     {
       VALUE "CompanyName", COMPANY_NAME
       VALUE "FileDescription", "AESManager"
-      VALUE "FileVersion", "0.8.156.10566"
+      VALUE "FileVersion", "0.8.284.10875"
       VALUE "InternalName", "AESManager"
       VALUE "LegalCopyright", "GNU"
       VALUE "OriginalFilename", "AESManager"
       VALUE "ProductName", "AESManager"
-      VALUE "ProductVersion", "0.8.156.10566"
+      VALUE "ProductVersion", "0.8.284.10875"
       VALUE "Comments", "AESManager"
     }
   }

@@ -42,6 +42,7 @@ bool __fastcall IsExistParamsEdit(); // Funkcja sprawdza, czy istnieje hasło, �
 bool __fastcall SaveHistoryFile(); // Funkcja zapisująca plik historii.
 bool __fastcall LoadHistoryFile(); // Funkcja, która wczytuje plik histori na początku.
 void __fastcall AppendMemoInfos(LPCWSTR lpszTextAdd); // Dodanie nowej lini do historii.
+void __fastcall DrawButtonViewPass(HWND hwnd, const LPDRAWITEMSTRUCT dis); // Rysowanie kontrolek
 
 NOTIFYICONDATA GLOBAL_NID;
 
@@ -84,7 +85,8 @@ HWND GLOBAL_MAINWINDOW=nullptr,	//Główne okno
 RECT GLOBAL_RECT_BOTTPANEL,
 	 GLOBAL_RECT_LEFTTOPPANEL,
 	 GLOBAL_RECT_RIGHTTOPPANEL;
-bool GLOBAL_TOGGLE_STATE_PASS=false; // Stan przycisku pokazywania stanu hasła
+static bool GLOBAL_TOGGLE_STATE_PASS=false; // Stan przycisku pokazywania stanu hasła
+			//GLOBAL_HOVER=false; // stan hover
 
 GsAES *GLOBAL_PGSAES=nullptr;
 
@@ -143,6 +145,22 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		//---
 		case WM_MOUSEMOVE:
+		{
+			// // Sprawdź, czy mysz jest nad przyciskiem.
+			// TRACKMOUSEEVENT tme;
+			// tme.cbSize = sizeof(tme);
+			// tme.dwFlags = TME_LEAVE;   // chcemy dostać WM_MOUSELEAVE.
+			// tme.hwndTrack = hwnd;
+			// TrackMouseEvent(&tme);
+			//
+			// GLOBAL_HOVER = true;
+			// InvalidateRect(GLOBAL_BUTTON_VIEPASS, nullptr, TRUE);
+		}
+			break;
+		//---
+		case WM_MOUSELEAVE:
+			// GLOBAL_HOVER = false;
+			// InvalidateRect(GLOBAL_BUTTON_VIEPASS, nullptr, TRUE);
 			break;
 		//---
 		case WM_CLOSE:
@@ -538,6 +556,7 @@ void __fastcall OnCommand(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	}
 
 	// === Przyciski nieznajdujące się na tool barze ===
+		//  Przycisk odkrywania tekstu hasła
 	else if((reinterpret_cast<HWND>(lParam) ==  GLOBAL_BUTTON_VIEPASS) && (LOWORD(wParam) == IDBUTTON_VIEWPASS) &&
 		(HIWORD(wParam) == BN_CLICKED))
 	{
@@ -697,33 +716,7 @@ void __fastcall OnDrawItem(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam
 	{
 		case IDBUTTON_VIEWPASS:
 		{
-			// Tło zależne od stanu toggle
-			COLORREF bgColor = GLOBAL_TOGGLE_STATE_PASS ? RGB(200, 230, 255) : RGB(240, 240, 240);
-			HBRUSH hBrush = CreateSolidBrush(bgColor);
-			FillRect(dis->hDC, &dis->rcItem, hBrush);
-			DeleteObject(hBrush); hBrush = nullptr;
-			// Stan wciśnięcia
-			//RECT rc = dis->rcItem;
-			DrawEdge(dis->hDC, &dis->rcItem,
-				GLOBAL_TOGGLE_STATE_PASS ? EDGE_SUNKEN : EDGE_RAISED, BF_RECT);
-
-			// Ikona 32×32 przy lewej krawędzi
-			int iconX = dis->rcItem.left + 4;
-			int iconY = dis->rcItem.top + (dis->rcItem.bottom - dis->rcItem.top - 32) / 2;
-			DrawIconEx(dis->hDC, iconX, iconY, GLOBAL_HICON_VIEWPASS, 32, 32, 0,
-				nullptr, DI_NORMAL);
-
-			//Odczytanie tekstu z przycisku
-			TCHAR textButton[256];
-			GetWindowText(dis->hwndItem, textButton, ARRAYSIZE(textButton));
-
-			// Tekst po prawej stronie ikony
-			SetBkMode(dis->hDC, TRANSPARENT);
-			SetTextColor(dis->hDC, RGB(0, 0, 0));
-
-			RECT rcText = dis->rcItem;
-			rcText.left += 32 + 8; // przesunięcie za ikonę
-			DrawText(dis->hDC, textButton, -1, &rcText, DT_SINGLELINE | DT_LEFT | DT_VCENTER);
+			DrawButtonViewPass(hwnd, dis);
 		}
 		break;
 		//---
@@ -1269,5 +1262,60 @@ void __fastcall AppendMemoInfos(LPCWSTR lpszTextAdd)
 	// Dodaj tekst + nową linię.
 	SendMessageW(GLOBAL_HMEMORYTEXTINFOS, EM_REPLACESEL, FALSE, reinterpret_cast<LPARAM>(lpszTextAdd));
 	SendMessageW(GLOBAL_HMEMORYTEXTINFOS, EM_REPLACESEL, FALSE, reinterpret_cast<LPARAM>(TEXT("\r\n")));
+}
+//---------------------------------------------------------------------------
+void __fastcall DrawButtonViewPass(HWND hwnd, const LPDRAWITEMSTRUCT dis)
+/**
+	OPIS METOD(FUNKCJI): Rysowanie kontrolek.
+	OPIS ARGUMENTÓW:
+	OPIS ZMIENNYCH:
+	OPIS WYNIKU METODY(FUNKCJI):
+*/
+{
+	HDC hdc = dis->hDC;
+	RECT rc = dis->rcItem;
+
+	// Kolor tła zależny od stanu
+	COLORREF bgColor;
+	if(dis->itemState & ODS_DISABLED)
+		bgColor = RGB(220,220,220); // wyłączony
+	else if(dis->itemState & ODS_SELECTED)
+		bgColor = RGB(200,200,200); // kliknięty
+	// else if(GLOBAL_HOVER)
+	// 	bgColor = RGB(230,230,250); // hover
+	else
+		bgColor = GLOBAL_TOGGLE_STATE_PASS ? RGB(200,230,200) : RGB(240,240,240); // toggle ON/OFF
+
+	// Tło płaskie – zależne od stanu toggle
+	HBRUSH hBrush = CreateSolidBrush(bgColor);
+	FillRect(hdc, &rc, hBrush);
+	DeleteObject(hBrush);
+
+	// Ramka płaska
+	FrameRect(hdc, &rc, GetSysColorBrush(COLOR_WINDOWFRAME));
+
+	if(GLOBAL_HICON_VIEWPASS)
+	{
+		// Ikona 32×32 przy lewej krawędzi
+		int iconX = dis->rcItem.left + 4;
+		int iconY = dis->rcItem.top + (dis->rcItem.bottom - dis->rcItem.top - 32) / 2;
+		DrawIconEx(dis->hDC, iconX, iconY, GLOBAL_HICON_VIEWPASS, 32, 32, 0,
+			nullptr, DI_NORMAL);
+	}
+
+	// Odczytanie tekstu z przycisku
+	TCHAR textButton[256];
+	GetWindowText(dis->hwndItem, textButton, ARRAYSIZE(textButton));
+
+	// Tekst po prawej stronie ikony
+	SetBkMode(dis->hDC, TRANSPARENT);
+	SetTextColor(dis->hDC, RGB(0, 0, 0));
+
+	RECT rcText = dis->rcItem;
+	rcText.left += 32 + 8; // przesunięcie za ikonę
+	DrawText(dis->hDC, textButton, -1, &rcText, DT_SINGLELINE | DT_LEFT | DT_VCENTER);
+
+	// Fokus
+	if (dis->itemState & ODS_FOCUS) DrawFocusRect(hdc, &rc);
 }
 //---------------------------------------------------------------------------
