@@ -1,0 +1,52 @@
+﻿/*
+OutputExt=res
+*/
+#define UNICODE
+
+#include <windows.h>
+#include <commctrl.h>
+#include "AESManager_resource.h"
+
+ICON_MAIN_ICON ICON "MainIcon.ico"
+//Bitmapy przycisków z głównego toolbara 32x32
+OPEN_FILE BITMAP "gfx\\Otworz_projekt.bmp"
+PROCESS_FILE BITMAP "gfx\\Szyfrowanie.bmp"
+SAVE_CONFIG BITMAP "gfx\\ZapisKonfiguracji.bmp"
+PROCESS_DIR BITMAP "gfx\\SzyfrujKatalog.bmp"
+SAVE_HISTORY BITMAP "gfx\\Zapisz_projekt.bmp"
+CLEAR_HISTORY BITMAP "gfx\\KasowanieHistorii.bmp"
+//VIEW_PASSWORD BITMAP "gfx\\PokazHaslo.bmp"
+
+VIEW_PASS ICON "gfx\\PokazHaslo.ico"
+
+1 VERSIONINFO
+FILEVERSION 0,8,156,10566
+PRODUCTVERSION 0,8,156,10566
+FILEOS VOS__WINDOWS32
+FILETYPE VFT_APP
+{
+  BLOCK "StringFileInfo"
+  {
+    BLOCK "041504E2"
+    {
+      VALUE "CompanyName", COMPANY_NAME
+      VALUE "FileDescription", "AESManager"
+      VALUE "FileVersion", "0.8.156.10566"
+      VALUE "InternalName", "AESManager"
+      VALUE "LegalCopyright", "GNU"
+      VALUE "OriginalFilename", "AESManager"
+      VALUE "ProductName", "AESManager"
+      VALUE "ProductVersion", "0.8.156.10566"
+      VALUE "Comments", "AESManager"
+    }
+  }
+  BLOCK "VarFileInfo"
+  {
+    VALUE "Translation", 1045, 1250
+  }
+}
+
+//
+// Manifest resources
+//
+1 RT_MANIFEST    ".\\manifest.xml"
