@@ -43,6 +43,8 @@ bool __fastcall SaveHistoryFile(); // Funkcja zapisująca plik historii.
 bool __fastcall LoadHistoryFile(); // Funkcja, która wczytuje plik histori na początku.
 void __fastcall AppendMemoInfos(LPCWSTR lpszTextAdd); // Dodanie nowej lini do historii.
 void __fastcall DrawButtonViewPass(HWND hwnd, const LPDRAWITEMSTRUCT dis); // Rysowanie kontrolek
+LRESULT CALLBACK ButtonViewPassProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam,
+	UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 
 NOTIFYICONDATA GLOBAL_NID;
 
@@ -85,8 +87,8 @@ HWND GLOBAL_MAINWINDOW=nullptr,	//Główne okno
 RECT GLOBAL_RECT_BOTTPANEL,
 	 GLOBAL_RECT_LEFTTOPPANEL,
 	 GLOBAL_RECT_RIGHTTOPPANEL;
-static bool GLOBAL_TOGGLE_STATE_PASS=false; // Stan przycisku pokazywania stanu hasła
-			//GLOBAL_HOVER=false; // stan hover
+static bool GLOBAL_TOGGLE_STATE_PASS=false, // Stan przycisku pokazywania stanu hasła
+			GLOBAL_HOVER=false; // stan hover
 
 GsAES *GLOBAL_PGSAES=nullptr;
 
@@ -144,47 +146,28 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			OnNotify(hwnd, message, lParam);
 			break;
 		//---
-		case WM_MOUSEMOVE:
-		{
-			// // Sprawdź, czy mysz jest nad przyciskiem.
-			// TRACKMOUSEEVENT tme;
-			// tme.cbSize = sizeof(tme);
-			// tme.dwFlags = TME_LEAVE;   // chcemy dostać WM_MOUSELEAVE.
-			// tme.hwndTrack = hwnd;
-			// TrackMouseEvent(&tme);
-			//
-			// GLOBAL_HOVER = true;
-			// InvalidateRect(GLOBAL_BUTTON_VIEPASS, nullptr, TRUE);
-		}
-			break;
-		//---
-		case WM_MOUSELEAVE:
-			// GLOBAL_HOVER = false;
-			// InvalidateRect(GLOBAL_BUTTON_VIEPASS, nullptr, TRUE);
-			break;
-		//---
 		case WM_CLOSE:
-			{
-				TASKDIALOGCONFIG tdc;
+		{
+			TASKDIALOGCONFIG tdc;
 
-				SecureZeroMemory(&tdc, sizeof(tdc));
+			SecureZeroMemory(&tdc, sizeof(tdc));
 
-				tdc.cbSize = sizeof(TASKDIALOGCONFIG);
-				tdc.hwndParent = hwnd;
-				tdc.hInstance = GLOBAL_HINSTANCE;
-				tdc.dwFlags = TDF_ALLOW_DIALOG_CANCELLATION | TDF_USE_HICON_MAIN;
-				tdc.dwCommonButtons = TDCBF_OK_BUTTON | TDCBF_CANCEL_BUTTON;
-				tdc.pszWindowTitle = TEXT("Zapytanie aplikacji");
-				tdc.pszMainInstruction = TEXT("Czy naprawdę chcesz opuścić aplikację: \"AESManager\"?");
-				tdc.pszContent = TEXT("Naciśnięcie przycisku OK spowoduje zamknięcie aplikacji. Zapisz konfiguracje jesli nie zapisałeś zanim opuścisz aplikacje.");
-				tdc.hMainIcon = static_cast<HICON>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(ICON_MAIN_ICON), IMAGE_ICON,
-					32, 32, LR_DEFAULTCOLOR));
+			tdc.cbSize = sizeof(TASKDIALOGCONFIG);
+			tdc.hwndParent = hwnd;
+			tdc.hInstance = GLOBAL_HINSTANCE;
+			tdc.dwFlags = TDF_ALLOW_DIALOG_CANCELLATION | TDF_USE_HICON_MAIN;
+			tdc.dwCommonButtons = TDCBF_OK_BUTTON | TDCBF_CANCEL_BUTTON;
+			tdc.pszWindowTitle = TEXT("Zapytanie aplikacji");
+			tdc.pszMainInstruction = TEXT("Czy naprawdę chcesz opuścić aplikację: \"AESManager\"?");
+			tdc.pszContent = TEXT("Naciśnięcie przycisku OK spowoduje zamknięcie aplikacji. Zapisz konfiguracje jesli nie zapisałeś zanim opuścisz aplikacje.");
+			tdc.hMainIcon = static_cast<HICON>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(ICON_MAIN_ICON), IMAGE_ICON,
+				32, 32, LR_DEFAULTCOLOR));
 
-				int nButton = 0;
-				TaskDialogIndirect(&tdc, &nButton, nullptr, nullptr);
-				if (nButton == IDOK) DestroyWindow(hwnd);
-			}
-			break;
+			int nButton = 0;
+			TaskDialogIndirect(&tdc, &nButton, nullptr, nullptr);
+			if (nButton == IDOK) DestroyWindow(hwnd);
+		}
+		break;
 		//---
 		case WM_PAINT:
 			OnPaint(hwnd, message, lParam);
@@ -193,7 +176,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case WM_DRAWITEM:
 			OnDrawItem(hwnd, message, wParam, lParam);
 			return true;
-			//break;
+			break;
 		//---
 		case WM_DESTROY:
 			OnDestroy(hwnd, message, wParam, lParam);	//Procedura wywoływana podczas niszczenia okna
@@ -892,6 +875,7 @@ void __fastcall CreateOtherControls(HWND hwnd)
 		0, 0, 0, 0,
 		hwnd, reinterpret_cast<HMENU>(IDBUTTON_VIEWPASS), GLOBAL_HINSTANCE, nullptr);
 	SendMessage(GLOBAL_BUTTON_VIEPASS, BM_SETIMAGE, IMAGE_ICON, reinterpret_cast<LPARAM>(GLOBAL_HICON_VIEWPASS));
+	SetWindowSubclass(GLOBAL_BUTTON_VIEPASS, ButtonViewPassProc, 1, 0);
 	// Etykieta ścieżki pliku wejściowego
 	GLOBAL_PATH_LABEL_INPUT = CreateWindowEx(0, TEXT("STATIC"), TEXT("Plik wejściowy:"),
 		WS_CHILD | WS_VISIBLE | SS_NOTIFY, 0, 0, 0, 0,
@@ -1274,32 +1258,46 @@ void __fastcall DrawButtonViewPass(HWND hwnd, const LPDRAWITEMSTRUCT dis)
 {
 	HDC hdc = dis->hDC;
 	RECT rc = dis->rcItem;
+	int width  = rc.right - rc.left;
+	int height = rc.bottom - rc.top;
 
+	// Utwórz bufor w pamięci.
+	HDC hMemDC = CreateCompatibleDC(hdc);
+	HBITMAP hBmp = CreateCompatibleBitmap(hdc, width, height);
+	HBITMAP hOldBmp = static_cast<HBITMAP>(SelectObject(hMemDC, hBmp));
 	// Kolor tła zależny od stanu
 	COLORREF bgColor;
 	if(dis->itemState & ODS_DISABLED)
+	{
 		bgColor = RGB(220,220,220); // wyłączony
+	}
 	else if(dis->itemState & ODS_SELECTED)
+	{
 		bgColor = RGB(200,200,200); // kliknięty
-	// else if(GLOBAL_HOVER)
-	// 	bgColor = RGB(230,230,250); // hover
+	}
+	else if(GLOBAL_HOVER)
+	{
+		bgColor = RGB(230,230,250); // hover
+	}
 	else
+	{
 		bgColor = GLOBAL_TOGGLE_STATE_PASS ? RGB(200,230,200) : RGB(240,240,240); // toggle ON/OFF
+	}
 
 	// Tło płaskie – zależne od stanu toggle
 	HBRUSH hBrush = CreateSolidBrush(bgColor);
-	FillRect(hdc, &rc, hBrush);
+	FillRect(hMemDC, &rc, hBrush);
 	DeleteObject(hBrush);
 
 	// Ramka płaska
-	FrameRect(hdc, &rc, GetSysColorBrush(COLOR_WINDOWFRAME));
+	FrameRect(hMemDC, &rc, GetSysColorBrush(COLOR_WINDOWFRAME));
 
 	if(GLOBAL_HICON_VIEWPASS)
 	{
 		// Ikona 32×32 przy lewej krawędzi
 		int iconX = dis->rcItem.left + 4;
 		int iconY = dis->rcItem.top + (dis->rcItem.bottom - dis->rcItem.top - 32) / 2;
-		DrawIconEx(dis->hDC, iconX, iconY, GLOBAL_HICON_VIEWPASS, 32, 32, 0,
+		DrawIconEx(hMemDC, iconX, iconY, GLOBAL_HICON_VIEWPASS, 32, 32, 0,
 			nullptr, DI_NORMAL);
 	}
 
@@ -1308,14 +1306,65 @@ void __fastcall DrawButtonViewPass(HWND hwnd, const LPDRAWITEMSTRUCT dis)
 	GetWindowText(dis->hwndItem, textButton, ARRAYSIZE(textButton));
 
 	// Tekst po prawej stronie ikony
-	SetBkMode(dis->hDC, TRANSPARENT);
-	SetTextColor(dis->hDC, RGB(0, 0, 0));
+	SetBkMode(hMemDC, TRANSPARENT);
+	SetTextColor(hMemDC, RGB(0, 0, 0));
 
 	RECT rcText = dis->rcItem;
 	rcText.left += 32 + 8; // przesunięcie za ikonę
-	DrawText(dis->hDC, textButton, -1, &rcText, DT_SINGLELINE | DT_LEFT | DT_VCENTER);
+	HFONT hOldFont = static_cast<HFONT>(SelectObject(hMemDC, GLOBAL_HFONT));
+	DrawText(hMemDC, textButton, -1, &rcText, DT_SINGLELINE | DT_LEFT | DT_VCENTER);
 
 	// Fokus
-	if (dis->itemState & ODS_FOCUS) DrawFocusRect(hdc, &rc);
+	if(dis->itemState & ODS_FOCUS) DrawFocusRect(hMemDC, &rc);
+	SelectObject(hMemDC, hOldFont); // Przywrócenie starej czcionki
+
+	// Skopiuj bufor na ekran
+	BitBlt(hdc, rc.left, rc.top, width, height, hMemDC, rc.left, rc.top, SRCCOPY);
+	// Sprzątanie
+	SelectObject(hMemDC, hOldBmp);
+	DeleteObject(hBmp);
+	DeleteDC(hMemDC);
+}
+//---------------------------------------------------------------------------
+LRESULT CALLBACK ButtonViewPassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+							UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
+/**
+	OPIS METOD(FUNKCJI): Rysowanie kontrolek.
+	OPIS ARGUMENTÓW:
+	OPIS ZMIENNYCH:
+	OPIS WYNIKU METODY(FUNKCJI):
+*/
+{
+ 	switch(msg)
+ 	{
+		case WM_MOUSEMOVE:
+		{
+			// Sprawdź, czy mysz jest nad przyciskiem.
+			TRACKMOUSEEVENT tme;
+			tme.cbSize = sizeof(tme);
+			tme.dwFlags = TME_LEAVE;   // chcemy dostać WM_MOUSELEAVE.
+			tme.hwndTrack = hwnd;
+			TrackMouseEvent(&tme);
+
+			GLOBAL_HOVER = true;
+			InvalidateRect(GLOBAL_BUTTON_VIEPASS, nullptr, FALSE);
+		}
+		break;
+		//---
+ 		case WM_ERASEBKGND:
+ 			return TRUE; // nie czyścimy tła – brak migotania
+		//---
+		case WM_MOUSELEAVE:
+			GLOBAL_HOVER = false;
+			InvalidateRect(GLOBAL_BUTTON_VIEPASS, nullptr, FALSE);
+			break;
+		//---
+		case WM_NCDESTROY:
+			RemoveWindowSubclass(hwnd, ButtonViewPassProc, uIdSubclass);
+			break;
+		//---
+ 		default: break;
+ 	}
+	return DefSubclassProc(hwnd, msg, wParam, lParam);
 }
 //---------------------------------------------------------------------------
