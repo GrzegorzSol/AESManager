@@ -25,6 +25,7 @@
       <w>lini</w>
       <w>lpdrawitemstruct</w>
       <w>lpsz</w>
+      <w>ltext</w>
       <w>mainwindow</w>
       <w>pgsaes</w>
       <w>projectdirectory</w>
@@ -41,6 +42,7 @@
       <w>viepass</w>
       <w>viewpass</w>
       <w>wincl</w>
+      <w>wyszarzony</w>
     </words>
   </dictionary>
 </component>

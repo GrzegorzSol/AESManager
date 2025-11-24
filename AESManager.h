@@ -20,19 +20,24 @@ enum
 	// Tekst opisów w statusbarze
 	STR_LONG_OPEN_FILE, STR_LONG_PROCESS_FILE, STR_LONG_SAVECONFIG,
 	STR_LONG_PROCESS_DIR, STR_LONG_SAVE_HISTORY, STR_LONG_CLEARHISTORY,
+	STR_LONG_INFO,
 	// Teksty w podpowiedziach przycisków
 	STR_TITLE_BUTTON_HINT, // Tytuł opisu
 	// Tekst podpowiedzi
 	STR_TEXT_HINT_OPEN_FILE, STR_TEXT_HINT_PROCESS_FILE, STR_TEXT_HINT_SAVECONFIG,
 	STR_TEXT_HINT_PROCESS_DIR, STR_TEXT_HINT_SAVE_HISTORY, STR_TEXT_HINT_CLEARHISTORY,
+	STR_TEXT_HINT_INFO,
 	// Identyfikacje w menu traya
 	IDI_TRAY_EXIT = 1000,
 	// Identyfikatory ikon w ImageList
 	IDIMAGE_OPEN_FILE=0, IDIMAGE_PROCESS_FILE, IDIMAGE_SAVE_CONFIG,
 	IDIMAGE_PROCESS_DIR, IDIMAGE_SAVE_HISTORY, IDIMAGE_CLEARHISTORY,
+	IDIMAGE_INFO,
 	// Identyfikator numerów przycisków
 	IDBUTTON_OPEN_FILE=1000, IDBUTTON_PROCESS_FILE, IDBUTTON_SAVECOFIG,
 	IDBUTTON_PROCESS_DIR, IDBUTTON_SAVE_HISTORY, IDBUTTON_CLEARHISTORY,
+	IDBUTTON_INFO,
+
 	IDBUTTON_VIEWPASS=100, IDEDIT_PASS, IDEDIT_PATH_INPUT, IDEDIT_PATH_OUTPUT
 };
 
@@ -59,24 +64,26 @@ constexpr int ID_START_COUNT = IDBUTTON_OPEN_FILE,
 // Tablica napisów
 const TCHAR *GLOBAL_STRINGS[] =
 {
-	TEXT("Informacja"), TEXT("Wyjście"), TEXT("Ikona"),						//0-2
-	TEXT("AESManager - Aplikacja do szyfrowania"), TEXT("Przycisk"),	//3-4
-	// Tekst opisów w statusbarze
+	TEXT("Informacja"), TEXT("Wyjście"), TEXT("Ikona"),							//0-2
+	TEXT("AESManager - Aplikacja do szyfrowania"), TEXT("Przycisk"),			//3-4
+	// Tekst opisów w status barze
 	TEXT("Otwarcie pliku lub katalogu do zaszyfrowania, lub odszyfrowania"),	//5
-	TEXT("Rozpoczęcie procesu szyfrowania, lub deszyfrowania pliku"),
-	TEXT("Zapisanie aktualnej konfiguracji do pliku"),
-	TEXT("Rozpoczęcie procesu szyfrowania, lub deszyfrowania całego katalogu"),
-	TEXT("Zapis historii operacji wykonywanych w aplikacji"),			//6
-	TEXT("Kasowanie całej historii operacji"),
+	TEXT("Rozpoczęcie procesu szyfrowania, lub deszyfrowania pliku"),			//6
+	TEXT("Zapisanie aktualnej konfiguracji do pliku"),							//7
+	TEXT("Rozpoczęcie procesu szyfrowania, lub deszyfrowania całego katalogu"),	//8
+	TEXT("Zapis historii operacji wykonywanych w aplikacji"),					//9
+	TEXT("Kasowanie całej historii operacji"),									//10
+	TEXT("Informacja o aplikacji"),												//11
 
-	TEXT("Opis przycisku"),																				//7
+	TEXT("Opis przycisku"),														//12
 	// Tekst podpowiedzi
-	TEXT("Otwarcie pliku"),													//8
-	TEXT("(De)Szyfrowanie pliku"),
-	TEXT("Zapisanie konfiguracji"),
-	TEXT("(De)Szyfrowanie katalogu"),
-	TEXT("Zapisanie historii"),																	//9
-	TEXT("Kasowanie historii")
+	TEXT("Otwarcie pliku"),														//13
+	TEXT("(De)Szyfrowanie pliku"),												//14
+	TEXT("Zapisanie konfiguracji"),												//15
+	TEXT("(De)Szyfrowanie katalogu"),											//16
+	TEXT("Zapisanie historii"),													//17
+	TEXT("Kasowanie historii"),
+	TEXT("Informacje")
 };
 
 #endif //AESMANAGER_AESMANAGER_H

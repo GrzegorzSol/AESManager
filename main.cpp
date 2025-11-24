@@ -7,7 +7,7 @@
 #define NO_WIN32_LEAN_AND_MEAN
 #define UNICODE
 
-#include <windows.h>
+//#include <windows.h>
 #include <shlwapi.h>
 #include <commctrl.h>
 #include <pathcch.h>
@@ -16,9 +16,11 @@
 #include "AESManager_resource.h"
 #include "MyVersion.h"
 #include <Strsafe.h>
+#include <gdiplus.h>
 #include "GsAES.h"
 #include "GsWinLibrary.h"
 #include "AESManager.h"
+#include "GsAboutLibrary.h"
 
 #define WM_TRAYICON (WM_USER + 1)
 
@@ -47,6 +49,7 @@ LRESULT CALLBACK ButtonViewPassProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM l
 	UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 
 NOTIFYICONDATA GLOBAL_NID;
+ULONG_PTR gdiplusToken; // globalny token GDI+
 
 static TCHAR *GLOBAL_STRVERSION=nullptr,
 			  GLOBAL_PROJECTDIRECTORY[MAX_PATH],
@@ -55,7 +58,7 @@ static TCHAR *GLOBAL_STRVERSION=nullptr,
 			  GLOBAL_PATHCONFIG[MAX_PATH],
 			  GLOBAL_INPUTFILE[MAX_PATH],	// Ścieżka dostępu do pliku wczytanego
 			  GLOBAL_OUTPUTFILE[MAX_PATH];// Ścieżka dostępu do pliku po zaszyfrowaniu lub odszyfrowaniu
-int constexpr GLOBAL_ICSTARTWIDTH = 1190,	//Domyślna szerokość okna
+int constexpr GLOBAL_ICSTARTWIDTH = 1210,	//Domyślna szerokość okna
 			  GLOBAL_ICSTARTHEIGHT = 520,	//Domyślna wysokość okna
 			  GLOBAL_CIMAXLONGTEXTHINT = 100,
 			  GLOBAL_WIDTH_BUTT_VIEW_PASS = 138, // Szerokość przycisku pokazywania hasła
@@ -91,6 +94,10 @@ static bool GLOBAL_TOGGLE_STATE_PASS=false, // Stan przycisku pokazywania stanu 
 			GLOBAL_HOVER=false; // stan hover
 
 GsAES *GLOBAL_PGSAES=nullptr;
+
+/*
+	MessageBox(nullptr, TEXT("Tekst sprawdzający"), TEXT("Informacja"), MB_ICONINFORMATION);
+ */
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 /**
@@ -160,12 +167,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			tdc.pszWindowTitle = TEXT("Zapytanie aplikacji");
 			tdc.pszMainInstruction = TEXT("Czy naprawdę chcesz opuścić aplikację: \"AESManager\"?");
 			tdc.pszContent = TEXT("Naciśnięcie przycisku OK spowoduje zamknięcie aplikacji. Zapisz konfiguracje jesli nie zapisałeś zanim opuścisz aplikacje.");
-			tdc.hMainIcon = static_cast<HICON>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(ICON_MAIN_ICON), IMAGE_ICON,
-				32, 32, LR_DEFAULTCOLOR));
+			tdc.hMainIcon = static_cast<HICON>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(ICON_MAIN_ICON), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR));
 
 			int nButton = 0;
 			TaskDialogIndirect(&tdc, &nButton, nullptr, nullptr);
-			if (nButton == IDOK) DestroyWindow(hwnd);
+			if(nButton == IDOK)
+			{
+				Gdiplus::GdiplusShutdown(gdiplusToken);
+				DestroyWindow(hwnd);
+			}
 		}
 		break;
 		//---
@@ -213,7 +223,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance,
 
 	GLOBAL_STRVERSION = MyVersion::GetInfo(); // Informacja o wersji
 	SecureZeroMemory(&szpTextInfo, sizeof(szpTextInfo));
-	StringCchPrintf(szpTextInfo, 100, TEXT("AESManager v%s (c) Grzegorz Sołtysik"), GLOBAL_STRVERSION);
+	StringCchPrintf(szpTextInfo, 100, TEXT("AESManager v%s (c)Grzegorz Sołtysik"), GLOBAL_STRVERSION);
 	SecureZeroMemory(&GLOBAL_NID, sizeof(GLOBAL_NID));
 
 	//Rejestracja nowych klas GUI
@@ -291,6 +301,13 @@ void __fastcall OnCreate(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	OPIS WYNIKU METODY (FUNKCJI):
 */
 {
+	// Inicjalizacja GDI+ przy tworzeniu okna
+	Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+	if(GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, nullptr) != Gdiplus::Ok)
+	{
+		MessageBox(nullptr, TEXT("Nie udało się zainicjalizować GDI+"), TEXT("Błąd"), MB_ICONERROR);
+		return;
+	}
 	//Odczyt i udostępnienie czcionki systemowej
 	GLOBAL_HFONT = CreateFont(-MulDiv(GLOBAL_SIZE_FONT, GetDeviceCaps(GetDC(nullptr), LOGPIXELSY), 72), // wysokość w punktach
 		0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
@@ -300,11 +317,8 @@ void __fastcall OnCreate(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 	if(!GLOBAL_HFONT) return;
 	// Załadowanie ikony dla podglądu hasła
-	GLOBAL_HICON_VIEWPASS = static_cast<HICON>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCEW(VIEW_PASS), IMAGE_ICON,
-		32, 32,LR_DEFAULTCOLOR));
+	GLOBAL_HICON_VIEWPASS = static_cast<HICON>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCEW(VIEW_PASS), IMAGE_ICON, 32, 32,LR_DEFAULTCOLOR));
 	if(!GLOBAL_HICON_VIEWPASS) return;
-	// Tworzenie koloru dla memo
-	//GLOBAL_HBRUSHTEXTCOLOR = CreateSolidBrush(RGB(0, 0, 0)); // Kolor tekstu w memo
 	// Dodawanie tray icon
 	AddTrayIcon(hwnd);
 	//Stworzenie globalnej ImageListy
@@ -533,6 +547,12 @@ void __fastcall OnCommand(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			case IDBUTTON_CLEARHISTORY:
 				SetWindowText(GLOBAL_HMEMORYTEXTINFOS, TEXT(""));
 			break;
+				//---
+			case IDBUTTON_INFO:
+			{
+				DialogBox(GLOBAL_HINSTANCE, MAKEINTRESOURCE(IDD_ABOUTBOX), hwnd, GsAboutDlgProc);
+			}
+			break;
 			//---
 			default: break;
 		}
@@ -657,6 +677,11 @@ void __fastcall OnNotify(HWND hwnd, UINT message, LPARAM lParam)
 					SendMessage(GLOBAL_HSTATUSBAR, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(GLOBAL_STRINGS[STR_LONG_CLEARHISTORY]));
 					break;
 				//---
+				case IDBUTTON_INFO:
+					lPNMDispInfo->lpszText = const_cast<TCHAR *>(GLOBAL_STRINGS[STR_TEXT_HINT_INFO]);
+					SendMessage(GLOBAL_HSTATUSBAR, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(GLOBAL_STRINGS[STR_LONG_INFO]));
+					break;
+				//---
 				default:
 					break;
 			}
@@ -761,33 +786,37 @@ void __fastcall CreateToolBar(HWND hwnd)
 	OPIS WYNIKU METODY(FUNKCJI):
 */
 {
-	HBITMAP hbmObraz=nullptr;
-	constexpr int ciCountButton = 6;
+	HICON hIcon=nullptr;
+	constexpr int ciCountButton = 7;
 
 	//------------ Bitmapy z zasobów główny ToolBar 32x32
-	hbmObraz = static_cast<HBITMAP>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(OPEN_FILE), IMAGE_BITMAP, 0, 0, LR_DEFAULTCOLOR)); //3
-	ImageList_Add(GLOBAL_HIMGLIST32, hbmObraz, nullptr);
-	DeleteObject(hbmObraz); // kasowanie bitmapy
+	hIcon = static_cast<HICON>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(OPEN_FILE), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR));
+	ImageList_AddIcon(GLOBAL_HIMGLIST32, hIcon);
+	DestroyIcon(hIcon);
 
-	hbmObraz = static_cast<HBITMAP>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(PROCESS_FILE), IMAGE_BITMAP, 0, 0, LR_DEFAULTCOLOR)); //3
-	ImageList_Add(GLOBAL_HIMGLIST32, hbmObraz, nullptr);
-	DeleteObject(hbmObraz); // kasowanie bitmapy
+	hIcon = static_cast<HICON>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(PROCESS_FILE), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR)); //3
+	ImageList_AddIcon(GLOBAL_HIMGLIST32, hIcon);
+	DestroyIcon(hIcon);
 
-	hbmObraz = static_cast<HBITMAP>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(SAVE_CONFIG), IMAGE_BITMAP, 0, 0, LR_DEFAULTCOLOR)); //3
-	ImageList_Add(GLOBAL_HIMGLIST32, hbmObraz, nullptr);
-	DeleteObject(hbmObraz); // kasowanie bitmapy
+	hIcon = static_cast<HICON>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(SAVE_CONFIG), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR)); //3
+	ImageList_AddIcon(GLOBAL_HIMGLIST32, hIcon);
+	DestroyIcon(hIcon);
 
-	hbmObraz = static_cast<HBITMAP>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(PROCESS_DIR), IMAGE_BITMAP, 0, 0, LR_DEFAULTCOLOR)); //3
-	ImageList_Add(GLOBAL_HIMGLIST32, hbmObraz, nullptr);
-	DeleteObject(hbmObraz); // kasowanie bitmapy
+	hIcon = static_cast<HICON>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(PROCESS_DIR), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR)); //3
+	ImageList_AddIcon(GLOBAL_HIMGLIST32, hIcon);
+	DestroyIcon(hIcon);
 
-	hbmObraz = static_cast<HBITMAP>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(SAVE_HISTORY), IMAGE_BITMAP, 0, 0, LR_DEFAULTCOLOR)); //2
-	ImageList_Add(GLOBAL_HIMGLIST32, hbmObraz, nullptr);
-	DeleteObject(hbmObraz); // kasowanie bitmapy
+	hIcon = static_cast<HICON>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(SAVE_HISTORY), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR)); //2
+	ImageList_AddIcon(GLOBAL_HIMGLIST32, hIcon);
+	DestroyIcon(hIcon);
 
-	hbmObraz = static_cast<HBITMAP>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(CLEAR_HISTORY), IMAGE_BITMAP, 0, 0, LR_DEFAULTCOLOR)); //3
-	ImageList_Add(GLOBAL_HIMGLIST32, hbmObraz, nullptr);
-	DeleteObject(hbmObraz); // kasowanie bitmapy
+	hIcon = static_cast<HICON>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(CLEAR_HISTORY), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR)); //3
+	ImageList_AddIcon(GLOBAL_HIMGLIST32, hIcon);
+	DestroyIcon(hIcon);
+
+	hIcon = static_cast<HICON>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(ID_INFORMATIONS), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR)); //3
+	ImageList_AddIcon(GLOBAL_HIMGLIST32, hIcon);
+	DestroyIcon(hIcon);
 
 	//--- Tworzenie ToolBaru z ImageList
 	GLOBAL_HTOOLBAR = CreateWindowEx(WS_EX_STATICEDGE, TOOLBARCLASSNAME, nullptr,
@@ -1256,20 +1285,23 @@ void __fastcall DrawButtonViewPass(HWND hwnd, const LPDRAWITEMSTRUCT dis)
 	OPIS WYNIKU METODY(FUNKCJI):
 */
 {
-	HDC hdc = dis->hDC;
-	RECT rc = dis->rcItem;
-	int width  = rc.right - rc.left;
-	int height = rc.bottom - rc.top;
+	HDC hdc=dis->hDC;
+	RECT rc=dis->rcItem;
+	int width=rc.right - rc.left,
+		height=rc.bottom - rc.top;
+	COLORREF textColor=RGB(0, 0, 0);
 
 	// Utwórz bufor w pamięci.
-	HDC hMemDC = CreateCompatibleDC(hdc);
-	HBITMAP hBmp = CreateCompatibleBitmap(hdc, width, height);
+	HDC hMemDC = CreateCompatibleDC(hdc); // Nowy kontekst grafiki.
+	HBITMAP hBmp = CreateCompatibleBitmap(hdc, width, height); // Nowa kompatybilna z aktualną bitmapa.
+	// Podmiana bitmapy i dołączenie jej do nowego konteksty grafiki.
 	HBITMAP hOldBmp = static_cast<HBITMAP>(SelectObject(hMemDC, hBmp));
 	// Kolor tła zależny od stanu
 	COLORREF bgColor;
 	if(dis->itemState & ODS_DISABLED)
 	{
 		bgColor = RGB(220,220,220); // wyłączony
+		textColor = RGB(160,160,160); // wyszarzony.
 	}
 	else if(dis->itemState & ODS_SELECTED)
 	{
@@ -1278,6 +1310,7 @@ void __fastcall DrawButtonViewPass(HWND hwnd, const LPDRAWITEMSTRUCT dis)
 	else if(GLOBAL_HOVER)
 	{
 		bgColor = RGB(230,230,250); // hover
+		textColor = RGB(0,120,215);   // niebieski Windows 10 hover.
 	}
 	else
 	{
@@ -1307,7 +1340,7 @@ void __fastcall DrawButtonViewPass(HWND hwnd, const LPDRAWITEMSTRUCT dis)
 
 	// Tekst po prawej stronie ikony
 	SetBkMode(hMemDC, TRANSPARENT);
-	SetTextColor(hMemDC, RGB(0, 0, 0));
+	SetTextColor(hMemDC, textColor);//RGB(0, 0, 0));
 
 	RECT rcText = dis->rcItem;
 	rcText.left += 32 + 8; // przesunięcie za ikonę

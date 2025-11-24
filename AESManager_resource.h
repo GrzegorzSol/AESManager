@@ -14,9 +14,16 @@
 #define PROCESS_DIR 203
 #define SAVE_HISTORY 204
 #define CLEAR_HISTORY 205
-//#define VIEW_PASSWORD 206
+#define ID_INFORMATIONS 206
 
 #define VIEW_PASS 300
+
+// Dialog
+#define IDD_ABOUTBOX 400 // Definicja dialogu
+
+#define IDC_LOGO 500 // Kontrolka loga
+#define IDC_INFO_APP 501 // Kontrolka wersji
+#define IDC_FULL_TEXT 502// Pełny opis
 
 #define COMPANY_NAME "(c) Grzegorz Sołtysik"
 

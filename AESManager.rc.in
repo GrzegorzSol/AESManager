@@ -8,16 +8,27 @@ OutputExt=res
 #include "AESManager_resource.h"
 
 ICON_MAIN_ICON ICON "MainIcon.ico"
-//Bitmapy przycisków z głównego toolbara 32x32
-OPEN_FILE BITMAP "gfx\\Otworz_projekt.bmp"
-PROCESS_FILE BITMAP "gfx\\Szyfrowanie.bmp"
-SAVE_CONFIG BITMAP "gfx\\ZapisKonfiguracji.bmp"
-PROCESS_DIR BITMAP "gfx\\SzyfrujKatalog.bmp"
-SAVE_HISTORY BITMAP "gfx\\Zapisz_projekt.bmp"
-CLEAR_HISTORY BITMAP "gfx\\KasowanieHistorii.bmp"
-//VIEW_PASSWORD BITMAP "gfx\\PokazHaslo.bmp"
-
+//Ikony przycisków z głównego toolbara 32x32
+OPEN_FILE ICON "gfx\\OtworzProjekt.ico"
+PROCESS_FILE ICON "gfx\\SzyfrowaniePlikow.ico"
+SAVE_CONFIG ICON "gfx\\ZapisKonfiguracji.ico"
+SAVE_HISTORY ICON "gfx\\ZapiszHistorie.ico"
+PROCESS_DIR ICON "gfx\\SzyfrujKatalog.ico"
+CLEAR_HISTORY ICON "gfx\\KasowanieHistorii.ico"
+ID_INFORMATIONS ICON "gfx\\Informacje.ico"
 VIEW_PASS ICON "gfx\\PokazHaslo.ico"
+
+//Dialog
+IDD_ABOUTBOX DIALOGEX DISCARDABLE 0, 0, 400, 113
+STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_DLGMODALFRAME
+CAPTION "O programie"
+FONT 11, "Segoe UI"
+{
+    CTEXT "", IDC_INFO_APP, 210, 10, 180, 23
+    LTEXT "", IDC_FULL_TEXT, 210, 29, 180, 74
+    CONTROL "", IDC_LOGO, "STATIC", SS_OWNERDRAW, 0, 0, 200, 113 //x, y, szer, wys
+}
 
 1 VERSIONINFO
 FILEVERSION @PROJECT_VERSION@
