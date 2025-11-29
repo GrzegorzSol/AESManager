@@ -1,7 +1,7 @@
 ﻿// Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: MyVersion.cpp
-// Data: 20.11.2025, 07:13
+// Data: 28.11.2025, 19:40
 
 /*
 Biblioteka wspólnych metod dla wszystkich klas i modułów aplikacji. Główną klasą jest klasa Library całkowicie publiczna i statyczna.
@@ -40,7 +40,7 @@ TCHAR *MyVersion::GetInfo(TCHAR *InfoItem)
 	TCHAR szGetName[256];
 	LPWSTR lpVersion;				 // String pointer to Item text
 	DWORD dwVerInfoSize,		// Size of version information block
-		  dwVerHnd=0;				 // An 'ignored' parameter, always '0'
+			dwVerHnd=0;				 // An 'ignored' parameter, always '0'
 	UINT uVersionLen;
 	BOOL bRetCode;
 

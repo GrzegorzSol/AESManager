@@ -1,17 +1,23 @@
 <component name="ProjectDictionaryState">
   <dictionary name="project">
     <words>
+      <w>arraysize</w>
       <w>bottpanel</w>
       <w>cimaxlongtexthint</w>
       <w>commdlg</w>
       <w>cryptext</w>
+      <w>dblclks</w>
+      <w>dostosowywując</w>
       <w>editinput</w>
       <w>editoutput</w>
       <w>editpassword</w>
+      <w>gdiplus</w>
       <w>getexedir</w>
       <w>gswinlibrary</w>
+      <w>hashowanie</w>
       <w>himglist</w>
       <w>histori</w>
+      <w>hmemorytextinfo</w>
       <w>hmemorytextinfos</w>
       <w>hstatusbar</w>
       <w>htoolbar</w>
@@ -25,24 +31,32 @@
       <w>lini</w>
       <w>lpdrawitemstruct</w>
       <w>lpsz</w>
+      <w>lresult</w>
       <w>ltext</w>
       <w>mainwindow</w>
+      <w>objektu</w>
+      <w>odszyfrowywuje</w>
+      <w>overlappedwindow</w>
       <w>pgsaes</w>
       <w>projectdirectory</w>
       <w>przyporządkowywuje</w>
       <w>rgroup</w>
       <w>righttoppanel</w>
       <w>shlobj</w>
+      <w>singleline</w>
       <w>statusbara</w>
       <w>strversion</w>
       <w>succes</w>
+      <w>tchar</w>
       <w>toolbara</w>
       <w>traya</w>
       <w>trayicon</w>
       <w>viepass</w>
       <w>viewpass</w>
       <w>wincl</w>
+      <w>wlpsz</w>
       <w>wyszarzony</w>
+      <w>zainicjalizować</w>
     </words>
   </dictionary>
 </component>

@@ -1,7 +1,7 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: GsAboutLibrary.h
-// Data: 23.11.2025, 05:42
+// Data: 28.11.2025, 19:40
 
 //
 // Created by GrzegorzS on 23.11.2025.

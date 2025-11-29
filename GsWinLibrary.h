@@ -1,7 +1,7 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: GsWinLibrary.h
-// Data: 20.11.2025, 07:13
+// Data: 28.11.2025, 19:40
 
 #ifndef GSWINLIBRARY_H
 #define GSWINLIBRARY_H
@@ -15,7 +15,7 @@ extern __fastcall void GsSetStateToolBarButton(HWND hToolBar, int iCommand, bool
 extern HFONT GsGetSystemFont();
 
 // Wybiera dialog do wyboru pliku
-extern bool GsLoadFile(TCHAR *lpszOutFile);
+extern bool GsLoadFile(TCHAR *lpszOutFile, size_t sizeOutFile);
 
 // Otwiera okno dialogowe do wyboru katalogu
 bool GsSelectProjectDirectory(TCHAR *lpszSelectDir, const TCHAR *lpszDefaultDir);

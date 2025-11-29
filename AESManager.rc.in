@@ -22,11 +22,12 @@ VIEW_PASS ICON "gfx\\PokazHaslo.ico"
 IDD_ABOUTBOX DIALOGEX DISCARDABLE 0, 0, 400, 113
 STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_DLGMODALFRAME
-CAPTION "O programie"
+CAPTION "O programie..."
 FONT 11, "Segoe UI"
 {
     CTEXT "", IDC_INFO_APP, 210, 10, 180, 23
-    LTEXT "", IDC_FULL_TEXT, 210, 29, 180, 74
+    LTEXT "", IDC_FULL_TEXT, 210, 29, 180, 50
+    CONTROL "<a href=\"https://github.com/GrzegorzSol/AESManager\">https://github.com/GrzegorzSol/AESManager</a>", IDC_ADDRESS, "SysLink", WS_TABSTOP, 210, 80, 180, 23
     CONTROL "", IDC_LOGO, "STATIC", SS_OWNERDRAW, 0, 0, 200, 113 //x, y, szer, wys
 }
 

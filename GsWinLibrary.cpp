@@ -1,7 +1,7 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: GsWinLibrary.cpp
-// Data: 20.11.2025, 07:13
+// Data: 28.11.2025, 19:40
 
 #define STRICT
 #define NO_WIN32_LEAN_AND_MEAN
@@ -13,7 +13,7 @@
 
 int CALLBACK GsBrowseCallBackProc(HWND hwnd, UINT uMsg, LPARAM lParam, LPARAM lpData);
 
-__fastcall void  GsSetStateToolBarButton(HWND hToolBar, int iCommand, bool bStateEnabled)
+__fastcall void	 GsSetStateToolBarButton(HWND hToolBar, int iCommand, bool bStateEnabled)
 /**
 	OPIS METOD(FUNKCJI): Zmiana stany przycisku na toolbarze zależnie od argument bStateEnabled, domyślnie true.
 	OPIS ARGUMENTÓW:
@@ -63,7 +63,7 @@ HFONT GsGetSystemFont()
 	return hFont;
 }
 //---------------------------------------------------------------------------
-bool GsLoadFile(TCHAR *lpszOutFile)
+bool GsLoadFile(TCHAR *lpszOutFile, size_t sizeOutFile)
 /**
 	OPIS METOD(FUNKCJI): Wybiera dialog do wyboru pliku
 	OPIS ARGUMENTÓW:
@@ -74,6 +74,7 @@ bool GsLoadFile(TCHAR *lpszOutFile)
 	bool bRet=false;
 	OPENFILENAME ofn;
 
+	SecureZeroMemory(lpszOutFile, sizeOutFile);
 	SecureZeroMemory(&ofn, sizeof(ofn));
 	ofn.lStructSize = sizeof(ofn);
 	ofn.lpstrFilter = TEXT("Wszystkie pliki\0*.*\0");
@@ -104,10 +105,10 @@ bool GsSelectProjectDirectory(TCHAR *lpszSelectDir, const TCHAR *lpszDefaultDir)
 	BROWSEINFO bi;
 
 	//Wybieranie katalogu z projektem
-	SecureZeroMemory(&bi, sizeof(BROWSEINFO));    //Zerowanie nowego rekordu
-	bi.lpszTitle  = TEXT("Wybierz katalog do zaszyfrowania lub odszyfrowania...");
-	bi.ulFlags    = BIF_USENEWUI | BIF_DONTGOBELOWDOMAIN | BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE | BIF_NONEWFOLDERBUTTON;
-	bi.lpfn       = GsBrowseCallBackProc;
+	SecureZeroMemory(&bi, sizeof(BROWSEINFO));		//Zerowanie nowego rekordu
+	bi.lpszTitle	= TEXT("Wybierz katalog do zaszyfrowania lub odszyfrowania...");
+	bi.ulFlags		= BIF_USENEWUI | BIF_DONTGOBELOWDOMAIN | BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE | BIF_NONEWFOLDERBUTTON;
+	bi.lpfn				= GsBrowseCallBackProc;
 	bi.lParam = reinterpret_cast<LPARAM>(lpszDefaultDir);//Aktualny katalog
 
 	LPITEMIDLIST pidl = SHBrowseForFolder(&bi);
@@ -161,9 +162,9 @@ bool __fastcall GsGetControlSize(HWND hControl, HWND hParentControl, RECT &rRect
 	POINT pt = { rcScreen.left, rcScreen.top };
 	if (!ScreenToClient(hParentControl, &pt)) return false;
 
-	rRectControl.left   = pt.x;
-	rRectControl.top    = pt.y;
-	rRectControl.right  = pt.x + (rcScreen.right - rcScreen.left);
+	rRectControl.left		= pt.x;
+	rRectControl.top		= pt.y;
+	rRectControl.right	= pt.x + (rcScreen.right - rcScreen.left);
 	rRectControl.bottom = pt.y + (rcScreen.bottom - rcScreen.top);
 
 	return true;

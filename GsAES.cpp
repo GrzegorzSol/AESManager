@@ -1,7 +1,7 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: GsAES.cpp
-// Data: 20.11.2025, 07:13
+// Data: 28.11.2025, 19:40
 
 //
 // Created by GrzegorzS on 17.10.2025.
@@ -16,13 +16,13 @@
 #define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
 __fastcall void Global_Debug(const AESResult &Hash, const AESResult &KEY, const AESResult &IV);
 
-__fastcall AESResult GsAES::GsAESComputeSHAHash(LPCWSTR pszText, enSizeSHABit enTypeHash)
+__fastcall AESResult GsAES::GsAESComputeSHAHash(LPCWSTR pszText, const enSizeSHABit enTypeHash)
 /**
 	OPIS METOD(FUNKCJI): Oblicza skrót SHA-256, lub SHA-512 dla tekstu Unicode (LPCWSTR)
-	OPIS ARGUMENTÓW: [in] - LPCWSTR pszText - wskaźnik do szerokoznakowego łańcucha wejściowego
-					 [in] - enSizeSHABit enTypeHash - typ haszowania, SHA-256 lub SHA-512
+	OPIS ARGUMENTÓW: [in] - LPCWSTR pszText-wskaźnik do szerokoznakowego łańcucha wejściowego
+					 [in] - enSizeSHABit enTypeHash-typ haszowania, SHA-256 lub SHA-512
 	OPIS ZMIENNYCH:
-	OPIS WYNIKU METODY(FUNKCJI): Struktura SHAResult zawierająca 32 bajty, lub 64 bajty skrótu
+	OPIS WYNIKU METODY(FUNKCJI): Struktura SHAResult zawierająca 32 bajty, lub 64 bajty skrótu.
 	UWAGI: Bufor pbData należy zwolnić przez HeapFree(GetProcessHeap(),0,pbData)
 */
 {
@@ -35,6 +35,10 @@ __fastcall AESResult GsAES::GsAESComputeSHAHash(LPCWSTR pszText, enSizeSHABit en
 	NTSTATUS status=1;
 
 	auto CleanupHash = [&]()
+	/**
+		OPIS METOD(FUNKCJI): Funkcja zwalniająca zarezerwowane zasoby podczas błędu
+												 lub zakończenia nadrzędnej funkcji typu lambda
+	*/
 	{
 		if(hHash) {BCryptDestroyHash(hHash); hHash = nullptr;}
 		if(pbHashObject) {HeapFree(GetProcessHeap(), 0, pbHashObject); pbHashObject = nullptr;}
@@ -240,12 +244,12 @@ __fastcall bool GsAES::_GsAESGenerateKeyAndIV_256(const AESResult &Hash, AESResu
 //---------------------------------------------------------------------------
 __fastcall bool GsAES::GsAESCryptFile(const AESResult &Hash, LPCWSTR lpszFileInput, LPCWSTR lpszFileOutput, enSizeKey enAESKey)
 /**
-	OPIS METOD(FUNKCJI): Właściwe szyfrowanie, lub odszyfrowywania.
+	OPIS METOD(FUNKCJI): Właściwe szyfrowanie lub odszyfrowywania.
 	OPIS ARGUMENTÓW: [in] - const SHAResult &Hash - Wygenerowany wcześnie hash z hasła w funkcji ComputeSHAHash().
-					 [in] - LPCWSTR lpszFileInput - ścieżka dostępu do pliku wejściowego.
-					 [in] - LPCWSTR lpszFileOutput - ścieżka dostępu do pliku wyjściowego.
-					 [in] - enSizeKey enAESKey - Typ (De)Szyfrowania AES, enSizeKey_128 - 128 bitowe,
-							enSizeKey_256 - 256 bitowe.
+					 [in] - LPCWSTR lpszFileInput-ścieżka dostępu do pliku wejściowego.
+					 [in] - LPCWSTR lpszFileOutput-ścieżka dostępu do pliku wyjściowego.
+					 [in] - enSizeKey enAESKey-Typ (De)Szyfrowania AES, enSizeKey_128 - 128-bitowe,
+							enSizeKey_256 - 256-bitowe.
 	OPIS ZMIENNYCH:
 */
 {
@@ -255,17 +259,21 @@ __fastcall bool GsAES::GsAESCryptFile(const AESResult &Hash, LPCWSTR lpszFileInp
 	NTSTATUS status;
 	ULONG DataLength=0, ulWyliczone=0;
 	HANDLE hFileInput = INVALID_HANDLE_VALUE,
-		   hFileOutput = INVALID_HANDLE_VALUE;
+			 hFileOutput = INVALID_HANDLE_VALUE;
 	LARGE_INTEGER sizeFileInput;
 	DWORD dwRead=0, dwWritten=0;
 
 	bool bResult = false;
 	AESResult KEY = { nullptr, 0 },
-			  IV = {nullptr, 0},
-			  PlainText = { nullptr, 0 },
-			  CipherText = { nullptr, 0 };
+				IV = {nullptr, 0},
+				PlainText = { nullptr, 0 },
+				CipherText = { nullptr, 0 };
 
 	auto CleanupCrypt = [&]()
+	/**
+		OPIS METOD(FUNKCJI): Funkcja zwalniająca zarezerwowane zasoby podczas błędu
+												 lub zakończenia nadrzędnej funkcji typu lambda
+	*/
 	{
 		if(hFileInput != INVALID_HANDLE_VALUE) {CloseHandle(hFileInput); hFileInput = INVALID_HANDLE_VALUE;}
 		if(hFileOutput != INVALID_HANDLE_VALUE) {CloseHandle(hFileOutput); hFileOutput = INVALID_HANDLE_VALUE;}
@@ -456,16 +464,16 @@ __fastcall bool GsAES::GsAESDecryptFile(const AESResult &Hash, LPCWSTR lpszFileI
 	BCRYPT_KEY_HANDLE hKey = nullptr;
 	NTSTATUS status;
 	HANDLE hFileInput = INVALID_HANDLE_VALUE,
-		   hFileOutput = INVALID_HANDLE_VALUE;
+			 hFileOutput = INVALID_HANDLE_VALUE;
 	LARGE_INTEGER sizeFileInput;
 	DWORD dwRead=0, dwWritten=0;
 	bool bResult = false;
 	AESResult KEY = { nullptr, 0 },
-			  IV = {nullptr, 0},
-			  PlainText = { nullptr, 0 },
-			  CipherText = { nullptr, 0 },
-			  FileIV = { nullptr, 0 },
-			  EncryptedText = { nullptr, 0 };
+				IV = {nullptr, 0},
+				PlainText = { nullptr, 0 },
+				CipherText = { nullptr, 0 },
+				FileIV = { nullptr, 0 },
+				EncryptedText = { nullptr, 0 };
 
 	auto CleanupDecrypt = [&]()
 	{
@@ -622,7 +630,7 @@ __fastcall bool GsAES::GsAESDecryptFile(const AESResult &Hash, LPCWSTR lpszFileI
 		ULONG DataLength = 0;
 		// Deszyfrowanie danych
 		status = BCryptDecrypt(hKey, EncryptedText.pbData, EncryptedText.cbDataLength, nullptr, IV.pbData, IV.cbDataLength,
-			  PlainText.pbData, PlainText.cbDataLength, &DataLength, BCRYPT_BLOCK_PADDING);
+				PlainText.pbData, PlainText.cbDataLength, &DataLength, BCRYPT_BLOCK_PADDING);
 		if(!BCRYPT_SUCCESS(status))
 		{
 			MessageBox(nullptr, TEXT("Błąd funkcji BCryptDecrypt()!"), TEXT("Błąd"), MB_ICONERROR);
@@ -666,6 +674,10 @@ __fastcall TCHAR *GsAES::GsAESEncodeBase64(LPCWSTR pszPassword)
 	BYTE* pbUtf8=nullptr;
 
 	auto CleanupCryptBase64 = [&]()
+	/**
+		OPIS METOD(FUNKCJI): Funkcja zwalniająca zarezerwowane zasoby podczas błędu
+												 lub zakończenia nadrzędnej funkcji typu lambda
+	*/
 	{
 		if(pbUtf8) {HeapFree(GetProcessHeap(), 0, pbUtf8); pbUtf8 = nullptr;}
 	};
@@ -674,7 +686,7 @@ __fastcall TCHAR *GsAES::GsAESEncodeBase64(LPCWSTR pszPassword)
 	cbUtf8 = WideCharToMultiByte(CP_UTF8, 0, pszPassword, -1, nullptr, 0, nullptr, nullptr);
 	pbUtf8 = static_cast<BYTE*>(HeapAlloc(GetProcessHeap(), 0, cbUtf8));
 	if(!pbUtf8) {CleanupCryptBase64(); return nullptr;}
-	WideCharToMultiByte(CP_UTF8, 0, pszPassword, -1, (LPSTR)pbUtf8, cbUtf8, nullptr, nullptr);
+	WideCharToMultiByte(CP_UTF8, 0, pszPassword, -1, reinterpret_cast<LPSTR>(pbUtf8), cbUtf8, nullptr, nullptr);
 	// Najpierw sprawdzamy wymaganą długość.
 	if(!CryptBinaryToString(pbUtf8, cbUtf8 - 1, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, nullptr, &cchOut))
 		{CleanupCryptBase64(); return nullptr;}
@@ -702,6 +714,10 @@ __fastcall bool GsAES::GsAESDecodeBase64(LPCWSTR pszPasswordBase64, TCHAR *pszOu
 	BYTE *pbData=nullptr;
 
 	auto CleanupDecryptBase64 = [&]()
+	/**
+		OPIS METOD(FUNKCJI): Funkcja zwalniająca zarezerwowane zasoby podczas błędu
+												 lub zakończenia nadrzędnej funkcji typu lambda
+	*/
 	{
 		if(pbData) {HeapFree(GetProcessHeap(), 0, pbData); pbData = nullptr;}
 	};
@@ -754,10 +770,10 @@ __fastcall void Global_Debug(const AESResult &Hash, const AESResult &KEY, const 
 {
 	constexpr int cLenTemp = 6 * MAX_PATH;
 	TCHAR szTemp[cLenTemp], // Zmianna dla komunikatu(tymczasowa)
-		  szTempStrToInt[4], // Tymczasowo
-		  szTempHashText[cLenTemp], // Tymczasowo
-		  szTempKeyText[cLenTemp], // Tymczasowo
-		  szTempIVText[cLenTemp]; // Tymczasowo
+			szTempStrToInt[4], // Tymczasowo
+			szTempHashText[cLenTemp], // Tymczasowo
+			szTempKeyText[cLenTemp], // Tymczasowo
+			szTempIVText[cLenTemp]; // Tymczasowo
 
 	SecureZeroMemory(&szTempHashText, sizeof(szTempHashText));
 	SecureZeroMemory(&szTempKeyText, sizeof(szTempKeyText));

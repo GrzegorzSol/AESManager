@@ -1,7 +1,7 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: AESManager.h
-// Data: 20.11.2025, 07:13
+// Data: 28.11.2025, 19:40
 
 //
 // Created by GrzegorzS on 21.10.2025.
@@ -14,7 +14,7 @@
 // Identyfikatory pozycji napisów tablicy GLOBAL_STRINGS
 enum
 {
-	STR_INF0_TITLE, STR_TRAYMENU_EXIT, STR_TRAYHINT, STR_INFO_TEXT,
+	STR_INF0_TITLE=0, STR_TRAYMENU_EXIT, STR_TRAYHINT, STR_INFO_TEXT,
 	// Opisy przycisków
 	STR_BUTTON_TEXT, //4
 	// Tekst opisów w statusbarze
@@ -44,7 +44,7 @@ enum
 constexpr TCHAR GLOBAL_CLASS_NAME[] = TEXT("MojeOknoWinAPI"),
 	GLOBAL_TITLE_WINDOW[] = TEXT("Główne okno - Grzegorz Sołtysik"),
 	GLOBAL_FONT_NAME[] = TEXT("Segoe UI"),
-	GLOBAL_CRYPTEXT[] = TEXT(".gscrypt"),
+	GLOBAL_CRYPT_EXT[] = TEXT(".gscrypt"),
 	// Zmienne dla pliku .ini
 	GLOBAL_CONFIGFILENAME[] = TEXT("AESManager.ini"),
 	GLOBAL_MAINSECTION[] = TEXT("MAIN"),
@@ -59,8 +59,8 @@ constexpr TCHAR GLOBAL_CLASS_NAME[] = TEXT("MojeOknoWinAPI"),
 	GLOBAL_HISTORY_FILE[] = TEXT("Historia_AES.txt");
 
 constexpr int ID_START_COUNT = IDBUTTON_OPEN_FILE,
-			  GLOBAL_SIZE_FONT = 11,
-			  GLOBAL_CODEPASS = 0x25CF;
+				GLOBAL_SIZE_FONT = 11,
+				GLOBAL_CODEPASS = 0x25CF;
 // Tablica napisów
 const TCHAR *GLOBAL_STRINGS[] =
 {

@@ -1,7 +1,7 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: AESManager_resource.h
-// Data: 20.11.2025, 07:13
+// Data: 28.11.2025, 19:40
 
 #ifndef AESMANAGER_RESOURCE_H
 #define AESMANAGER_RESOURCE_H
@@ -24,6 +24,7 @@
 #define IDC_LOGO 500 // Kontrolka loga
 #define IDC_INFO_APP 501 // Kontrolka wersji
 #define IDC_FULL_TEXT 502// Pełny opis
+#define IDC_ADDRESS 503 // Adres repetytorium Gita.
 
 #define COMPANY_NAME "(c) Grzegorz Sołtysik"
 
