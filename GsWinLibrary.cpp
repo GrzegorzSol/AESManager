@@ -1,7 +1,7 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: GsWinLibrary.cpp
-// Data: 28.11.2025, 19:40
+// Data: 6.12.2025, 17:41
 
 #define STRICT
 #define NO_WIN32_LEAN_AND_MEAN
@@ -15,7 +15,7 @@ int CALLBACK GsBrowseCallBackProc(HWND hwnd, UINT uMsg, LPARAM lParam, LPARAM lp
 
 __fastcall void	 GsSetStateToolBarButton(HWND hToolBar, int iCommand, bool bStateEnabled)
 /**
-	OPIS METOD(FUNKCJI): Zmiana stany przycisku na toolbarze zależnie od argument bStateEnabled, domyślnie true.
+	OPIS METOD(FUNKCJI): Zmiana stany przycisku na toolbarze zależnie od argumentu bStateEnabled, domyślnie true.
 	OPIS ARGUMENTÓW:
 	OPIS ZMIENNYCH:
 	OPIS WYNIKU METODY(FUNKCJI): Uchwyt na czcionkę.
@@ -26,10 +26,10 @@ __fastcall void	 GsSetStateToolBarButton(HWND hToolBar, int iCommand, bool bStat
 	SecureZeroMemory(&tbi, sizeof(TBBUTTONINFO));
 	tbi.dwMask = TBIF_COMMAND | TBIF_STATE;
 	tbi.cbSize = sizeof(TBBUTTONINFO);
-	SendMessage(hToolBar, TB_GETBUTTONINFO, (WPARAM)iCommand, (LPARAM)&tbi);
+	SendMessage(hToolBar, TB_GETBUTTONINFO, static_cast<WPARAM>(iCommand), reinterpret_cast<LPARAM>(&tbi));
 
 	if(bStateEnabled) tbi.fsState = TBSTATE_ENABLED; else tbi.fsState = 0;
-	SendMessage(hToolBar, TB_SETBUTTONINFO, (WPARAM)iCommand, (LPARAM)&tbi);
+	SendMessage(hToolBar, TB_SETBUTTONINFO, static_cast<WPARAM>(iCommand), reinterpret_cast<LPARAM>(&tbi));
 }
 //---------------------------------------------------------------------------
 HFONT GsGetSystemFont()
@@ -117,7 +117,7 @@ bool GsSelectProjectDirectory(TCHAR *lpszSelectDir, const TCHAR *lpszDefaultDir)
 	{
 		SHGetPathFromIDList(pidl, lpszSelectDir);
 
-		//Zwolnienie pamięći utworzonego pidla, w funkcji SHBrowseForFolder
+		//Zwolnienie pamięci utworzonego pidla, w funkcji SHBrowseForFolder.
 		IMalloc *pImalloc=nullptr;
 		if(SUCCEEDED(SHGetMalloc(&pImalloc)))
 		{

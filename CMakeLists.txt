@@ -36,7 +36,7 @@ configure_file(${CMAKE_SOURCE_DIR}/${MAIN_RESOURCE}.in ${CMAKE_SOURCE_DIR}/${MAI
 
 # WIN32 -> aplikacja okienkowa (WinMain zamiast main)
 add_executable(AESManager WIN32 ${MAIN_SOURCE} MyVersion.h MyVersion.cpp ${MAIN_RESOURCE}
-        ${MAIN_RESOURCE_H} GsAES.cpp GsAES.h GsWinLibrary.cpp GsWinLibrary.h
+        ${MAIN_RESOURCE_H} GsAESCrypt.cpp GsAESCrypt.h GsWinLibrary.cpp GsWinLibrary.h
         AESManager.h GsAboutLibrary.cpp GsAboutLibrary.h)
 
 # Linkujemy biblioteki WinAPI

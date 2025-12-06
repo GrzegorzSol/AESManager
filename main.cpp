@@ -1,11 +1,16 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: main.cpp
-// Data: 28.11.2025, 19:40
+// Data: 6.12.2025, 17:41
+
+//TODO:
+//Użycie makra __AESBASIC__
 
 #define STRICT
 #define NO_WIN32_LEAN_AND_MEAN
 #define UNICODE
+#define __AESBASIC__ // Makro przełączające między szyfrowaniem prostym a profesjonalnym.
+										 // Gdy makro istnieje zostanie wykonane proste szyfrowanie.
 
 //#include <windows.h>
 #include <shlwapi.h>
@@ -17,7 +22,7 @@
 #include "MyVersion.h"
 #include <Strsafe.h>
 #include <gdiplus.h>
-#include "GsAES.h"
+#include "GsAESCrypt.h"
 #include "GsWinLibrary.h"
 #include "AESManager.h"
 #include "GsAboutLibrary.h"
@@ -40,9 +45,9 @@ void __fastcall ShowTrayMenu(HWND hwnd);	// Tworzenie i otwieranie popupmenu tra
 void __fastcall ReadFileConfig(); // Odczyt konfiguracji
 void __fastcall WriteFileConfig(); // Zapis konfiguracji
 AESResult __fastcall CreateHash(const enSizeSHABit eSizeSHABit); // Tworzenie hasha z hasła
-void __fastcall RunProcess(); // Wykonywanie mieszania hasła, a następnie szyfrowania lub deszyfrowania
+void __fastcall ProcessFilesNames(); // Wykonywanie mieszania hasła, a następnie szyfrowania lub deszyfrowania
 enTypeProcess __fastcall ProcessExtendFileName(LPCWSTR lpszFileName, bool bIsDirProcess=false);
-void __fastcall ProcesDirectoryName(LPCWSTR lpszDirectoryName);
+void __fastcall ProcessDirectoryName(LPCWSTR lpszDirectoryName); // Szyfrowanie lub deszyfrowanie wybranego katalogu
 bool __fastcall IsExistParamsEdit(); // Funkcja sprawdza, czy istnieje hasło, ścieżka wejściowa i wyjściowa.
 bool __fastcall SaveHistoryFile(); // Funkcja zapisująca plik historii.
 bool __fastcall LoadHistoryFile(); // Funkcja, która wczytuje plik histori na początku.
@@ -82,6 +87,8 @@ HWND GLOBAL_HWND_MAINWINDOW=nullptr,	//Główne okno
 		GLOBAL_HWND_EDITPASSWORD=nullptr,	// Kontrolka do wprowadzania hasła
 		GLOBAL_HWND_BUTTON_VIEPASS=nullptr,	// Przycisk pokazywania hasła
 		// Kontrolki ścieżek dostępu do pliku wejściowego i wyjściowego razem z etykietami.
+		GLOBAL_PATH_HWND_EDITDIR=nullptr,
+		GLOBAL_PATH_HWND_LABEL_DIR=nullptr,
 		GLOBAL_PATH_HWND_EDITINPUT=nullptr,
 		GLOBAL_PATH_HWND_LABEL_INPUT=nullptr,
 		GLOBAL_PATH_HWND_EDITOUTPUT=nullptr,
@@ -96,11 +103,9 @@ RECT GLOBAL_RECT_BOTTPANEL,
 static bool GLOBAL_TOGGLE_STATE_PASS=false, // Stan przycisku pokazywania stanu hasła
 			GLOBAL_HOVER=false; // stan hover
 
-GsAES *GLOBAL_PGSAES=nullptr;
-
 /*
 	MessageBox(nullptr, TEXT("Tekst sprawdzający"), TEXT("Informacja"), MB_ICONINFORMATION);
- */
+*/
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 /**
@@ -189,7 +194,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case WM_DRAWITEM:
 			OnDrawItem(hwnd, message, wParam, lParam);
 			return true;
-			break;
 		//---
 		case WM_DESTROY:
 			OnDestroy(hwnd, message, wParam, lParam);	//Procedura wywoływana podczas niszczenia okna
@@ -218,7 +222,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance,
 
 	// Odczyt ścieżki dostępu do katalogu aplikacji
 	SecureZeroMemory(&GLOBAL_GETEXEDIR, sizeof(GLOBAL_GETEXEDIR));
-	GetModuleFileNameW(nullptr, GLOBAL_GETEXEDIR, MAX_PATH);
+	GetModuleFileName(nullptr, GLOBAL_GETEXEDIR, MAX_PATH);
 	PathCchRemoveFileSpec(GLOBAL_GETEXEDIR, MAX_PATH);
 	// Stworzenie ścieżki do pliku konfiguracji
 	PathCchCombine(GLOBAL_PATHCONFIG, MAX_PATH, GLOBAL_GETEXEDIR, GLOBAL_CONFIGFILENAME);
@@ -333,14 +337,14 @@ void __fastcall OnCreate(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	ReadFileConfig();
 	LoadHistoryFile();
 	//---
-	GLOBAL_PGSAES = new GsAES();
-	if(!GLOBAL_PGSAES)
-	// Usunięcie klasy GsAES
-	{
-		MessageBox(nullptr, TEXT("Błąd inicjalizacji objektu, klasy GsAES"), TEXT("Error"), MB_ICONINFORMATION);
-		OnDestroy(nullptr, 0, 0, 0);
-		PostQuitMessage(0);
-	}
+	// GLOBAL_PGSAES = new GsAESBasic();
+	// if(!GLOBAL_PGSAES)
+	// // Usunięcie klasy GsAES
+	// {
+	// 	MessageBox(nullptr, TEXT("Błąd inicjalizacji objektu, klasy GsAES"), TEXT("Error"), MB_ICONINFORMATION);
+	// 	OnDestroy(nullptr, 0, 0, 0);
+	// 	PostQuitMessage(0);
+	// }
 	SetFontForAll(hwnd, GLOBAL_HFONT);
 	//printf("OnCreate\n");
 }
@@ -363,7 +367,7 @@ void __fastcall OnDestroy(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	GLOBAL_HFONT = nullptr;
 	//WriteFileConfig();
 	Shell_NotifyIcon(NIM_DELETE, &GLOBAL_NID);
-	if(GLOBAL_PGSAES) {delete GLOBAL_PGSAES; GLOBAL_PGSAES = nullptr;}
+	// if(GLOBAL_PGSAES) {delete GLOBAL_PGSAES; GLOBAL_PGSAES = nullptr;}
 }
 //---------------------------------------------------------------------------
 void __fastcall OnResize(HWND hwnd, UINT message, LPARAM lParam)
@@ -381,9 +385,11 @@ void __fastcall OnResize(HWND hwnd, UINT message, LPARAM lParam)
 		 RectEditPass,	// Wymiary edycji hasła
 		 RectButtonPass,	// Wymiary przycisku do pokazywania hasła.
 		 RectLabelInput,	// Wymiary etykiety pliku wejściowego
-		 RectLabelOutput,// wymiary etykiety pliku wyjściowego
+		 RectLabelOutput,// Wymiary etykiety pliku wyjściowego
+		 RectLabelDir,	// Wymiaru etykiety katalogu
 		 RectEditInput,	// Wymiary pola edycji pliku wejściowego
 		 RectEditOutput,	// Wymiary pola edycji pliku wyjściowego
+		 RectEditDir,	// Wymiary pola edycji katalogu
 		 RectRGroupAES128,	// Wymiary przycisku radiowego szyfrowania AES128
 		 RectRGroupAES256;	// Wymiary przycisku radiowego szyfrowania AES256
 	//Odczyt szerokości i wysokości okna, po zmianie jego rozmiarów
@@ -440,7 +446,7 @@ void __fastcall OnResize(HWND hwnd, UINT message, LPARAM lParam)
 
 	// Etykieta pliku wejściowego
 	SetWindowPos(GLOBAL_PATH_HWND_LABEL_INPUT, nullptr,
-		GLOBAL_RECT_RIGHTTOPPANEL.left + 32, RectEditPass.top, 100, RectHLabel.bottom - RectHLabel.top,
+		GLOBAL_RECT_RIGHTTOPPANEL.left + 32, GLOBAL_RECT_RIGHTTOPPANEL.top + 10, 100, RectHLabel.bottom - RectHLabel.top,
 	SWP_NOZORDER);
 	GsGetControlSize(GLOBAL_PATH_HWND_LABEL_INPUT, hwnd,RectLabelInput);
 
@@ -449,6 +455,12 @@ void __fastcall OnResize(HWND hwnd, UINT message, LPARAM lParam)
 		RectLabelInput.left, RectLabelInput.bottom + 4, 100, RectLabelInput.bottom - RectLabelInput.top,
 		SWP_NOZORDER);
 	GsGetControlSize(GLOBAL_PATH_HWND_LABEL_OUTPUT, hwnd, RectLabelOutput);
+
+	// Etykieta katalogu
+	SetWindowPos(GLOBAL_PATH_HWND_LABEL_DIR, nullptr,
+		RectLabelInput.left, RectLabelOutput.bottom + 4, 100,
+		RectLabelOutput.bottom - RectLabelOutput.top, SWP_NOZORDER);
+	GsGetControlSize(GLOBAL_PATH_HWND_LABEL_DIR, hwnd, RectLabelDir);
 
 	// Pole tekstowe pliku wejściowego
 	SetWindowPos(GLOBAL_PATH_HWND_EDITINPUT, nullptr,
@@ -462,6 +474,12 @@ void __fastcall OnResize(HWND hwnd, UINT message, LPARAM lParam)
 		RectEditInput.left, RectLabelOutput.top, RectEditInput.right - RectEditInput.left,
 		RectEditPass.bottom - RectEditPass.top, SWP_NOZORDER);
 	GsGetControlSize(GLOBAL_PATH_HWND_EDITOUTPUT, hwnd, RectEditOutput);
+
+	// Pole tekstowe katalogu
+	SetWindowPos(GLOBAL_PATH_HWND_EDITDIR, nullptr,
+		RectEditOutput.left, RectLabelDir.top, RectEditOutput.right - RectEditOutput.left,
+		RectEditPass.bottom - RectEditPass.top, SWP_NOZORDER);
+	GsGetControlSize(GLOBAL_PATH_HWND_EDITDIR, hwnd, RectEditDir);
 
 	// Przycisk radiowy AES 128
 	SetWindowPos(GLOBAL_HWND_RGROUP_AES128, nullptr,
@@ -501,12 +519,24 @@ void __fastcall OnCommand(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 						// plik wejściowy i wyjściowy.
 						ProcessExtendFileName(szFileOpen);
 					}
+					ShowWindow(GLOBAL_PATH_HWND_EDITDIR, SW_HIDE);
+					ShowWindow(GLOBAL_PATH_HWND_EDITINPUT, SW_SHOW);
+					ShowWindow(GLOBAL_PATH_HWND_EDITOUTPUT, SW_SHOW);
+					SetWindowText(GLOBAL_PATH_HWND_EDITDIR, TEXT(""));
 			}
 			break;
 			//---
-			case IDBUTTON_PROCESS_FILE:
+			case IDBUTTON_RUN_PROCESS:
+			// Rozpoczecie procesu szyfrowania lub deszyfrowania pojedyńczego pliku, lub całej zawartości katalogu.
 			{
-				RunProcess();
+				TCHAR szFile[MAX_PATH], szDir[MAX_PATH];
+
+				if(GetWindowText(GLOBAL_PATH_HWND_EDITINPUT, szFile, MAX_PATH) > 0)
+					// Operacja na pojedyńczym pliku
+					{ProcessFilesNames();}
+				else if(GetWindowText(GLOBAL_PATH_HWND_EDITDIR, szDir, MAX_PATH) > 0)
+					// Operacja na całym katalogu
+					{ProcessDirectoryName(GLOBAL_PROJECTDIRECTORY);}
 			}
 			break;
 			//---
@@ -514,13 +544,20 @@ void __fastcall OnCommand(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 				WriteFileConfig();
 				break;
 			//---
-			case IDBUTTON_PROCESS_DIR:
+			case IDBUTTON_OPEN_DIR:
 				SecureZeroMemory(GLOBAL_PROJECTDIRECTORY, sizeof(GLOBAL_PROJECTDIRECTORY));
 
-				GsSelectProjectDirectory(GLOBAL_PROJECTDIRECTORY, const_cast<TCHAR *>(TEXT("")));
-				// Aktywacja przycisku rozpoczęcia procesu
-				GsSetStateToolBarButton(GLOBAL_HWND_HTOOLBAR, IDBUTTON_PROCESS_FILE, true);
-				ProcesDirectoryName(GLOBAL_PROJECTDIRECTORY); // ???
+				if(GsSelectProjectDirectory(GLOBAL_PROJECTDIRECTORY, const_cast<TCHAR *>(TEXT("F:\\DevelopGS\\Testy"))))
+				{
+					//GsSelectProjectDirectory(GLOBAL_PROJECTDIRECTORY, const_cast<TCHAR *>(TEXT("")));
+					// pokaż kontrolkę
+					ShowWindow(GLOBAL_PATH_HWND_EDITDIR, SW_SHOW);
+					ShowWindow(GLOBAL_PATH_HWND_EDITINPUT, SW_HIDE);
+					ShowWindow(GLOBAL_PATH_HWND_EDITOUTPUT, SW_HIDE);
+					SetWindowText(GLOBAL_PATH_HWND_EDITDIR, GLOBAL_PROJECTDIRECTORY);
+					SetWindowText(GLOBAL_PATH_HWND_EDITINPUT, TEXT(""));
+					SetWindowText(GLOBAL_PATH_HWND_EDITOUTPUT, TEXT(""));
+				}
 				break;
 			//---
 			case IDBUTTON_SAVE_HISTORY:
@@ -555,34 +592,17 @@ void __fastcall OnCommand(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		SendMessage(GLOBAL_HWND_EDITPASSWORD, EM_SETPASSWORDCHAR, static_cast<WPARAM>(GLOBAL_TOGGLE_STATE_PASS) ? 0 : GLOBAL_CODEPASS, 0);
 		InvalidateRect(GLOBAL_HWND_EDITPASSWORD, nullptr, TRUE); // przerysuj przycisk.
 	}
-
 	// === Kontrola poprawnego wprowadzenia danych: Hasła, ścieżki wejściowej i wyjściowej. ===
-	else if((reinterpret_cast<HWND>(lParam) == GLOBAL_HWND_EDITPASSWORD) && (LOWORD(wParam) == IDEDIT_PASS) &&
-		(HIWORD(wParam) == EN_CHANGE))
-	// Edycja hasła
+	else if(	((reinterpret_cast<HWND>(lParam) == GLOBAL_HWND_EDITPASSWORD) && (LOWORD(wParam) == IDEDIT_PASS) && (HIWORD(wParam) == EN_CHANGE)) ||
+						((reinterpret_cast<HWND>(lParam) == GLOBAL_PATH_HWND_EDITINPUT) && (LOWORD(wParam) == IDEDIT_PATH_INPUT) && (HIWORD(wParam) == EN_CHANGE)) ||
+						((reinterpret_cast<HWND>(lParam) == GLOBAL_PATH_HWND_EDITOUTPUT) && (LOWORD(wParam) == IDEDIT_PATH_OUTPUT) && (HIWORD(wParam) == EN_CHANGE)) ||
+						((reinterpret_cast<HWND>(lParam) == GLOBAL_PATH_HWND_EDITDIR) && (LOWORD(wParam) == IDBUTTON_PATH_DIR) && (HIWORD(wParam) == EN_CHANGE))
+				 )
 	{
 		// Przycisk rozpoczęcia procesu zacznie się tylko wtedy gdy będą istnieć trzy zmienne:
 		// hasło, ścieżka wejściowa i wyjściowa.
-		bool bIsExist = IsExistParamsEdit(); // Sprawdzanie istnienia trzech parametrów.
-		SendMessage(GLOBAL_HWND_HTOOLBAR, TB_ENABLEBUTTON, IDBUTTON_PROCESS_FILE, MAKELONG(bIsExist, 0));
-	}
-	else if((reinterpret_cast<HWND>(lParam) == GLOBAL_PATH_HWND_EDITINPUT) && (LOWORD(wParam) == IDEDIT_PATH_INPUT) &&
-		(HIWORD(wParam) == EN_CHANGE))
-	// Edycja ścieżki wejściowej
-	{
-		// Przycisk rozpoczęcia procesu zacznie się tylko wtedy gdy będą istnieć trzy zmienne:
-		// hasło, ścieżka wejściowa i wyjściowa.
-		bool bIsExist = IsExistParamsEdit(); // Sprawdzanie istnienia trzech parametrów.
-		SendMessage(GLOBAL_HWND_HTOOLBAR, TB_ENABLEBUTTON, IDBUTTON_PROCESS_FILE, MAKELONG(bIsExist, 0));
-	}
-	else if((reinterpret_cast<HWND>(lParam) == GLOBAL_PATH_HWND_EDITOUTPUT) && (LOWORD(wParam) == IDEDIT_PATH_OUTPUT) &&
-		(HIWORD(wParam) == EN_CHANGE))
-	// Edycja ścieżki wyjściowej
-	{
-		// Przycisk rozpoczęcia procesu zacznie się tylko wtedy gdy będą istnieć trzy zmienne:
-		// hasło, ścieżka wejściowa i wyjściowa.
-		bool bIsExist = IsExistParamsEdit(); // Sprawdzanie istnienia trzech parametrów.
-		SendMessage(GLOBAL_HWND_HTOOLBAR, TB_ENABLEBUTTON, IDBUTTON_PROCESS_FILE, MAKELONG(bIsExist, 0));
+		const bool bIsExist = IsExistParamsEdit(); // Sprawdzanie istnienia trzech parametrów.
+		SendMessage(GLOBAL_HWND_HTOOLBAR, TB_ENABLEBUTTON, IDBUTTON_RUN_PROCESS, MAKELONG(bIsExist, 0));
 	}
 
 	// === Obsługa komunikatów z traya. ===
@@ -637,9 +657,9 @@ void __fastcall OnNotify(HWND hwnd, UINT message, LPARAM lParam)
 					SendMessage(GLOBAL_HWND_HSTATUSBAR, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(GLOBAL_STRINGS[STR_LONG_OPEN_FILE]));
 					break;
 				//---
-				case IDBUTTON_PROCESS_FILE:
-					lPNMDispInfo->lpszText = const_cast<TCHAR *>(GLOBAL_STRINGS[STR_TEXT_HINT_PROCESS_FILE]);
-					SendMessage(GLOBAL_HWND_HSTATUSBAR, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(GLOBAL_STRINGS[STR_LONG_PROCESS_FILE]));
+				case IDBUTTON_RUN_PROCESS:
+					lPNMDispInfo->lpszText = const_cast<TCHAR *>(GLOBAL_STRINGS[STR_TEXT_HINT_RUN_PROCESS]);
+					SendMessage(GLOBAL_HWND_HSTATUSBAR, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(GLOBAL_STRINGS[STR_LONG_RUN_PROCESS]));
 					break;
 				//---
 				case IDBUTTON_SAVECOFIG:
@@ -647,9 +667,9 @@ void __fastcall OnNotify(HWND hwnd, UINT message, LPARAM lParam)
 					SendMessage(GLOBAL_HWND_HSTATUSBAR, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(GLOBAL_STRINGS[STR_LONG_SAVECONFIG]));
 					break;
 				//---
-				case IDBUTTON_PROCESS_DIR:
-					lPNMDispInfo->lpszText = const_cast<TCHAR *>(GLOBAL_STRINGS[STR_TEXT_HINT_PROCESS_DIR]);
-					SendMessage(GLOBAL_HWND_HSTATUSBAR, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(GLOBAL_STRINGS[STR_LONG_PROCESS_DIR]));
+				case IDBUTTON_OPEN_DIR:
+					lPNMDispInfo->lpszText = const_cast<TCHAR *>(GLOBAL_STRINGS[STR_TEXT_HINT_OPEN_DIR]);
+					SendMessage(GLOBAL_HWND_HSTATUSBAR, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(GLOBAL_STRINGS[STR_LONG_OPEN_DIR]));
 					break;
 				//---
 				case IDBUTTON_SAVE_HISTORY:
@@ -732,7 +752,7 @@ void __fastcall CreateToolBar(HWND hwnd)
 	ImageList_AddIcon(GLOBAL_HIMGLIST32, hIcon);
 	DestroyIcon(hIcon);
 
-	hIcon = static_cast<HICON>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(PROCESS_FILE), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR)); //3
+	hIcon = static_cast<HICON>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(RUN_PROCESS), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR)); //3
 	ImageList_AddIcon(GLOBAL_HIMGLIST32, hIcon);
 	DestroyIcon(hIcon);
 
@@ -740,7 +760,7 @@ void __fastcall CreateToolBar(HWND hwnd)
 	ImageList_AddIcon(GLOBAL_HIMGLIST32, hIcon);
 	DestroyIcon(hIcon);
 
-	hIcon = static_cast<HICON>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(PROCESS_DIR), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR)); //3
+	hIcon = static_cast<HICON>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(OPEN_DIR), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR)); //3
 	ImageList_AddIcon(GLOBAL_HIMGLIST32, hIcon);
 	DestroyIcon(hIcon);
 
@@ -775,7 +795,7 @@ void __fastcall CreateToolBar(HWND hwnd)
 		//WM_COMMAND i WM_NOTIFY
 		tButton[iLicz].iString = reinterpret_cast<INT_PTR>(GLOBAL_STRINGS[STR_TEXT_HINT_OPEN_FILE + iLicz]);	//Napis pod przyciskiem
 		tButton[iLicz].iBitmap = iLicz;
-		if(tButton[iLicz].idCommand == IDBUTTON_PROCESS_FILE) //Indeks ikony w image list
+		if(tButton[iLicz].idCommand == IDBUTTON_RUN_PROCESS) //Indeks ikony w image list
 			tButton[iLicz].fsState = 0; else tButton[iLicz].fsState = TBSTATE_ENABLED;
 		tButton[iLicz].fsStyle = BTNS_AUTOSIZE | BTNS_SHOWTEXT;
 	}
@@ -843,6 +863,7 @@ void __fastcall CreateOtherControls(HWND hwnd)
 		hwnd, reinterpret_cast<HMENU>(IDBUTTON_VIEWPASS), GLOBAL_HINSTANCE, nullptr);
 	SendMessage(GLOBAL_HWND_BUTTON_VIEPASS, BM_SETIMAGE, IMAGE_ICON, reinterpret_cast<LPARAM>(GLOBAL_HICON_VIEWPASS));
 	SetWindowSubclass(GLOBAL_HWND_BUTTON_VIEPASS, ButtonViewPassProc, 1, 0);
+
 	// Etykieta ścieżki pliku wejściowego
 	GLOBAL_PATH_HWND_LABEL_INPUT = CreateWindowEx(0, TEXT("STATIC"), TEXT("Plik wejściowy:"),
 		WS_CHILD | WS_VISIBLE | SS_NOTIFY, 0, 0, 0, 0,
@@ -853,14 +874,27 @@ void __fastcall CreateOtherControls(HWND hwnd)
 		WS_CHILD | WS_VISIBLE | SS_NOTIFY, 0, 0, 0, 0,
 		hwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
 	if(GLOBAL_PATH_HWND_LABEL_OUTPUT == nullptr) return;
+	// Etykieta katalogu
+	GLOBAL_PATH_HWND_LABEL_DIR = CreateWindowEx(0, TEXT("STATIC"), TEXT("Katalog pracy:"),
+		WS_CHILD | WS_VISIBLE | SS_NOTIFY, 0, 0, 0, 0,
+		hwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
+	if(GLOBAL_PATH_HWND_LABEL_DIR == nullptr) return;
 	// Pole tekstowe sciezki pliku wejściowego
-	GLOBAL_PATH_HWND_EDITINPUT = CreateWindowEx(0, TEXT("EDIT"), nullptr, WS_CHILD | WS_VISIBLE | WS_BORDER | SS_NOTIFY,
+	GLOBAL_PATH_HWND_EDITINPUT = CreateWindowEx(0, TEXT("EDIT"), nullptr,
+		WS_CHILD | WS_BORDER | SS_NOTIFY | ES_READONLY,
 		0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(IDEDIT_PATH_INPUT), GLOBAL_HINSTANCE, nullptr);
 	if(GLOBAL_PATH_HWND_EDITINPUT == nullptr) return;
 	// Pole tekstowe sciezki pliku wyjściowego
-	GLOBAL_PATH_HWND_EDITOUTPUT = CreateWindowEx(0, TEXT("EDIT"), nullptr, WS_CHILD | WS_VISIBLE | WS_BORDER | SS_NOTIFY,
+	GLOBAL_PATH_HWND_EDITOUTPUT = CreateWindowEx(0, TEXT("EDIT"), nullptr,
+		WS_CHILD | WS_BORDER | SS_NOTIFY | ES_READONLY,
 		0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(IDEDIT_PATH_OUTPUT), GLOBAL_HINSTANCE, nullptr);
 	if(GLOBAL_PATH_HWND_EDITOUTPUT == nullptr) return;
+	// Pole tekstowe katalogu
+	GLOBAL_PATH_HWND_EDITDIR = CreateWindowEx(0, TEXT("EDIT"), nullptr,
+		WS_CHILD | WS_BORDER | SS_NOTIFY | ES_READONLY,
+		0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(IDBUTTON_PATH_DIR), GLOBAL_HINSTANCE, nullptr);
+	if(GLOBAL_PATH_HWND_EDITDIR == nullptr) return;
+
 	// Przycisk radiowy AES 128
 	GLOBAL_HWND_RGROUP_AES128 = CreateWindowEx(0, TEXT("BUTTON"), TEXT("Standard szyfrowania: AES 128"),
 		WS_CHILD | WS_VISIBLE | WS_GROUP | BS_AUTORADIOBUTTON,// | WS_BORDER,
@@ -950,18 +984,17 @@ void __fastcall ReadFileConfig()
 	// Deszyfrowanie odczytanego hasła
 
 	// Wypisanie zdeszyfrowanego hasła do kontrolki
-	if(GsAES::GsAESDecodeBase64(lpszGetPassword, pszOut, MAX_PATH)) SetWindowText(GLOBAL_HWND_EDITPASSWORD, pszOut); else return;
+	if(GsAESFunDecodeBase64(lpszGetPassword, pszOut, MAX_PATH)) SetWindowText(GLOBAL_HWND_EDITPASSWORD, pszOut);
+	else return;
 	if(StrRStrI(lpszTypeAES, nullptr, GLOBAL_VALUE_TYPEAES_128))
 	{
 		SendMessage(GLOBAL_HWND_RGROUP_AES128, BM_SETCHECK, BST_CHECKED, 0);
 		SendMessage(GLOBAL_HWND_RGROUP_AES256, BM_SETCHECK, BST_UNCHECKED, 0);
-		//MessageBox(nullptr, lpszTypeAES, TEXT("Type AES"), MB_ICONINFORMATION);
 	}
 	else if(StrRStrI(lpszTypeAES, nullptr, GLOBAL_VALUE_TYPEAES_256))
 	{
 		SendMessage(GLOBAL_HWND_RGROUP_AES256, BM_SETCHECK, BST_CHECKED, 0);
 		SendMessage(GLOBAL_HWND_RGROUP_AES128, BM_SETCHECK, BST_UNCHECKED, 0);
-		//MessageBox(nullptr, lpszTypeAES, TEXT("Type AES"), MB_ICONINFORMATION);
 	}
 }
 //---------------------------------------------------------------------------
@@ -979,7 +1012,7 @@ void __fastcall WriteFileConfig()
 	SecureZeroMemory(&lpszTypeAES, sizeof(lpszTypeAES));
 	GetWindowText(GLOBAL_HWND_EDITPASSWORD, lpszSetPassword, MAX_PATH);
 	// Zakodowanie hasła Base64
-	if(TCHAR *pszCryptPass = GsAES::GsAESEncodeBase64(lpszSetPassword))
+	if(TCHAR *pszCryptPass = GsAESFunEncodeBase64(lpszSetPassword))
 	{
 		WritePrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_KEY_PASSWORD, pszCryptPass, GLOBAL_PATHCONFIG);
 		HeapFree(GetProcessHeap(), 0, pszCryptPass); pszCryptPass = nullptr;
@@ -1010,12 +1043,12 @@ AESResult __fastcall CreateHash(const enSizeSHABit eSizeSHABit)
 	// Odczyt hasła
 	GetWindowText(GLOBAL_HWND_EDITPASSWORD, szGetPassword, MAX_PATH);
 
-	AESResult HashResult = GsAES::GsAESComputeSHAHash(szGetPassword, eSizeSHABit);
+	AESResult HashResult = GsAESFunComputeSHAHash(szGetPassword, eSizeSHABit);
 
 	return HashResult;
 }
 //---------------------------------------------------------------------------
-void __fastcall RunProcess()
+void __fastcall ProcessFilesNames()
 /**
 	OPIS METOD(FUNKCJI): Wykonywanie mieszania hasła, a następnie szyfrowania lub deszyfrowania
 	OPIS ARGUMENTÓW: const AESResult &HashResult.
@@ -1023,25 +1056,24 @@ void __fastcall RunProcess()
 	OPIS WYNIKU METODY(FUNKCJI):
 */
 {
-	TCHAR szGetPassword[MAX_PATH], szInputFilePath[MAX_PATH], szOutputFilePath[MAX_PATH],
-		szTextInfos[MAX_PATH];
+	TCHAR szInputFilePath[MAX_PATH], szOutputFilePath[MAX_PATH],
+				szTextInfos[MAX_PATH];
 	enSizeSHABit eSizeSHABit=enSizeSHABit_256;
 	enSizeKey eSizeKey=enSizeKey_128;
 	SYSTEMTIME st;
 
 	GetLocalTime(&st);
-	SecureZeroMemory(&szGetPassword, sizeof(szGetPassword));
+
 	SecureZeroMemory(&szTextInfos, sizeof(szTextInfos));
-	GetWindowText(GLOBAL_HWND_EDITPASSWORD, szGetPassword, MAX_PATH);
 	GetWindowText(GLOBAL_PATH_HWND_EDITINPUT, szInputFilePath, MAX_PATH);
 	GetWindowText(GLOBAL_PATH_HWND_EDITOUTPUT, szOutputFilePath, MAX_PATH);
-	// Selekcja typu szyfrowania
-	// Hashowanie SHA-256 lub SHA-512
+	// Selekcja typu szyfrowania.
+	// Hashowanie SHA-256 lub SHA-512.
 	if(SendMessage(GLOBAL_HWND_RGROUP_AES128, BM_GETCHECK, 0, 0) == BST_CHECKED)
 		{eSizeSHABit = enSizeSHABit_256; eSizeKey = enSizeKey_128;}
 	else if(SendMessage(GLOBAL_HWND_RGROUP_AES256, BM_GETCHECK, 0, 0) == BST_CHECKED)
 		{eSizeSHABit = enSizeSHABit_512; eSizeKey = enSizeKey_256;}
-	AESResult HashResult = GsAES::GsAESComputeSHAHash(szGetPassword, eSizeSHABit);
+	AESResult HashResult = CreateHash(eSizeSHABit); // Mieszanie hasła.
 	auto CleanupRunProc = [&]()
 	/**
 		OPIS METOD(FUNKCJI): Funkcja zwalniająca zarezerwowane zasoby podczas błędu
@@ -1064,13 +1096,12 @@ void __fastcall RunProcess()
 	if(StrRStrI(szInputFilePath, nullptr, GLOBAL_CRYPT_EXT))
 	// Wyszukanie dodatku do rozszerzenia GLOBAL_CRYPTEXT
 	{
-		//MessageBox(nullptr, TEXT("Odszyfrowywanie"), TEXT("Typ akcji"), MB_ICONINFORMATION);
 		StringCchPrintf(szTextInfos, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Odszyfrowywuje plik: \"%s\""),
 			st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, szInputFilePath);
-		bool bIsSucces = GsAES::GsAESDecryptFile(HashResult, szInputFilePath, szOutputFilePath, eSizeKey);
-		if(!bIsSucces)
+		//if(!GsAESBasic::GsAESBasicDecryptFile(HashResult, szInputFilePath, szOutputFilePath, eSizeKey))
+		if(!GsAESDecryptFile(HashResult, szInputFilePath, szOutputFilePath, eSizeKey))
 		{
-			MessageBox(nullptr, TEXT("Błąd metody GsAES::GsAESDecryptFile()!"), TEXT("Błąd"), MB_ICONERROR);
+			MessageBox(nullptr, TEXT("Błąd metody GsAESBasic::GsAESDecryptFile()!"), TEXT("Błąd"), MB_ICONERROR);
 			StringCchPrintf(szTextInfos, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Błąd odszyfrowywania pliku: \"%s\""),
 				st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, szInputFilePath);
 		}
@@ -1079,10 +1110,10 @@ void __fastcall RunProcess()
 	{
 		StringCchPrintf(szTextInfos, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Szyfruje plik: \"%s\""),
 			st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, szInputFilePath);
-		bool bIsSucces = GsAES::GsAESCryptFile(HashResult, szInputFilePath, szOutputFilePath, eSizeKey);
-		if(!bIsSucces)
+		//if(!GsAESBasic::GsAESBasicCryptFile(HashResult, szInputFilePath, szOutputFilePath, eSizeKey))
+		if(!GsAESCryptFile(HashResult, szInputFilePath, szOutputFilePath, eSizeKey))
 		{
-			MessageBox(nullptr, TEXT("Błąd metody GsAES::GsAESCryptFile()!"), TEXT("Błąd"), MB_ICONERROR);
+			MessageBox(nullptr, TEXT("Błąd metody GsAESBasic::GsAESCryptFile()!"), TEXT("Błąd"), MB_ICONERROR);
 			StringCchPrintf(szTextInfos, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Błąd szyfrowania pliku: \"%s\""),
 				st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, szInputFilePath);
 		}
@@ -1145,7 +1176,7 @@ enTypeProcess __fastcall ProcessExtendFileName(LPCWSTR lpszFileName, bool bIsDir
 	return eTypeProcess;
 }
 //---------------------------------------------------------------------------
-void __fastcall ProcesDirectoryName(LPCWSTR lpszDirectoryName)
+void __fastcall ProcessDirectoryName(LPCWSTR lpszDirectoryName)
 /**
 	OPIS METOD(FUNKCJI): Funkcja listuje i szyfruje lub deszyfruje całą zawartość katalogu lpszDirectoryName.
 	OPIS ARGUMENTÓW:
@@ -1164,13 +1195,18 @@ void __fastcall ProcesDirectoryName(LPCWSTR lpszDirectoryName)
 	enTypeProcess eTypeProcess=enTypeProcess_Crypt;
 	SYSTEMTIME st;
 
+	StringCchPrintf(lpszInfosText, MAX_PATH, TEXT("Czy chcesz przeprowadzić operacje na zawartości katalogu: \"%s\""),
+		lpszDirectoryName);
+	if(MessageBox(nullptr, lpszInfosText, TEXT("Zapytanie aplikacji"), MB_OKCANCEL| MB_ICONQUESTION | MB_TASKMODAL) != IDOK)
+		{return;}
+
 	GetLocalTime(&st);
 
 	StringCchCopy(lpszFileMask, MAX_PATH, lpszDirectoryName);
 	StringCchCat(lpszFileMask, MAX_PATH, TEXT("\\*.*"));
 
-	StringCchPrintf(lpszInfosText, MAX_PATH, TEXT(">>>>>> Przeprowadzam operacje na katalogu: \"%s\" <<<<<<. Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d"),
-		lpszDirectoryName, st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
+	StringCchPrintf(lpszInfosText, MAX_PATH, TEXT(">>>>>> Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d >>>>>> Przeprowadzam operacje na katalogu: \"%s\" <<<<<<"),
+		st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, lpszDirectoryName);
 	// Wyłącz odświeżanie.
 	SendMessage(GLOBAL_HWND_HMEMORYTEXTINFOS, WM_SETREDRAW, FALSE, 0);
 	AppendMemoInfos(lpszInfosText);
@@ -1189,7 +1225,7 @@ void __fastcall ProcesDirectoryName(LPCWSTR lpszDirectoryName)
 												 lub zakończenia nadrzędnej funkcji typu lambda
 	*/
 	{
-		if(hFind) FindClose(hFind);
+		if(hFind) {FindClose(hFind); hFind = nullptr;}
 		// Zwolnienie pamięci
 		if(HashResult.pbData) {HeapFree(GetProcessHeap(), 0, HashResult.pbData); HashResult.pbData = nullptr;}
 	};
@@ -1220,10 +1256,11 @@ void __fastcall ProcesDirectoryName(LPCWSTR lpszDirectoryName)
 			if(eTypeProcess == enTypeProcess_Crypt)
 			// Szyfrowanie
 			{
-				bIsSucces = GsAES::GsAESCryptFile(HashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);
+				//bIsSucces = GsAESBasic::GsAESBasicCryptFile(HashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);
+				bIsSucces = GsAESCryptFile(HashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);
 				if(!bIsSucces)
 				{
-					MessageBox(nullptr, TEXT("Błąd metody GsAES::GsAESCryptFile()!"), TEXT("Błąd"), MB_ICONERROR);
+					MessageBox(nullptr, TEXT("Błąd metody GsAESBasic::GsAESCryptFile()!"), TEXT("Błąd"), MB_ICONERROR);
 					StringCchPrintf(lpszInfosText, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Błąd szyfrowania pliku: \"%s\""),
 						st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, ffd.cFileName);
 				}
@@ -1236,10 +1273,11 @@ void __fastcall ProcesDirectoryName(LPCWSTR lpszDirectoryName)
 			else if(eTypeProcess == enTypeProcess_Decrypt)
 			// Odszyfrowanie
 			{
-				bIsSucces = GsAES::GsAESDecryptFile(HashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);
+				//bIsSucces = GsAESBasic::GsAESBasicDecryptFile(HashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);
+				bIsSucces = GsAESDecryptFile(HashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);
 				if(!bIsSucces)
 				{
-					MessageBox(nullptr, TEXT("Błąd metody GsAES::GsAESDecryptFile()!"), TEXT("Błąd"), MB_ICONERROR);
+					MessageBox(nullptr, TEXT("Błąd metody GsAESBasic::GsAESDecryptFile()!"), TEXT("Błąd"), MB_ICONERROR);
 					StringCchPrintf(lpszInfosText, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Błąd deszyfrowania pliku: \"%s\""),
 						st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, ffd.cFileName);
 				}
@@ -1275,14 +1313,16 @@ bool __fastcall IsExistParamsEdit()
 */
 {
 	bool bResult = false;
-	TCHAR szPass[MAX_PATH], szInputFilePath[MAX_PATH], szOutputFilePath[MAX_PATH];
-	int iLengthPass=0, iLengthInputFilePath=0, iLengthOutputFilePath=0;
+	TCHAR szPass[MAX_PATH], szInputFilePath[MAX_PATH], szOutputFilePath[MAX_PATH],
+		szDir[MAX_PATH];
+	int iLengthPass=0, iLengthInputFilePath=0, iLengthOutputFilePath=0, iLengthDir=0;
 
 	iLengthPass = GetWindowText(GLOBAL_HWND_EDITPASSWORD, szPass, MAX_PATH);
 	iLengthInputFilePath = GetWindowText(GLOBAL_PATH_HWND_EDITINPUT, szInputFilePath, MAX_PATH);
 	iLengthOutputFilePath = GetWindowText(GLOBAL_PATH_HWND_EDITOUTPUT, szOutputFilePath, MAX_PATH);
+	iLengthDir = GetWindowText(GLOBAL_PATH_HWND_EDITDIR, szDir, MAX_PATH);
 
-	bResult = (iLengthPass > 0) && (iLengthInputFilePath > 0) && (iLengthOutputFilePath > 0);
+	bResult = (iLengthPass > 0) && (((iLengthInputFilePath > 0) && (iLengthOutputFilePath > 0)) || iLengthDir > 0);
 	return bResult;
 }
 //---------------------------------------------------------------------------
@@ -1317,7 +1357,7 @@ bool __fastcall SaveHistoryFile()
 	len = GetWindowTextLength(GLOBAL_HWND_HMEMORYTEXTINFOS);
 	if (len <= 0) return false;
 	// Alokuj bufor (len + 1 na terminator)
-	pBuffer = static_cast<LPWSTR>(HeapAlloc(GetProcessHeap(), 0, (len + 1) * sizeof(WCHAR)));
+	pBuffer = static_cast<LPWSTR>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, (len + 1) * sizeof(WCHAR)));
 	if (!pBuffer) {CleanupSHistory(); return false;}
 	// Pobierz tekst.
 	GetWindowText(GLOBAL_HWND_HMEMORYTEXTINFOS, pBuffer, len + 1);
@@ -1326,7 +1366,7 @@ bool __fastcall SaveHistoryFile()
 		nullptr, nullptr);
 	if (utf8Size <= 0) {CleanupSHistory(); return false;}
 	// Alokuj bufor UTF-8
-	pUtf8 = static_cast<LPSTR>(HeapAlloc(GetProcessHeap(), 0, utf8Size));
+	pUtf8 = static_cast<LPSTR>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, utf8Size));
 	if (!pUtf8) {CleanupSHistory(); return false;}
 	// Konwersja do UTF-8
 	WideCharToMultiByte(CP_UTF8, 0, pBuffer, -1, pUtf8, utf8Size, nullptr, nullptr);
@@ -1373,18 +1413,18 @@ bool __fastcall LoadHistoryFile()
 	// Pobierz długość pliku.
 	LARGE_INTEGER liSize;
 	if (!GetFileSizeEx(hFile, &liSize)) {CleanupLHistory(); return false;}
-	if (liSize.QuadPart > MAXDWORD) {CleanupLHistory(); return false;}// uproszczenie: obsługa plików <= 4 GB
+	if (liSize.QuadPart > MAXDWORD) {CleanupLHistory(); return false;} // uproszczenie: obsługa plików <= 4 GB
 	dwSize = static_cast<DWORD>(liSize.QuadPart);
 
 	// Alokuj bufor
-	pBuffer = static_cast<LPBYTE>(HeapAlloc(GetProcessHeap(), 0, dwSize + sizeof(WCHAR)));
+	pBuffer = static_cast<LPBYTE>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, dwSize + sizeof(WCHAR)));
 	if(!pBuffer) {CleanupLHistory(); return false;}
 
 	// Wczytaj dane.
 	if(!ReadFile(hFile, pBuffer, dwSize, &dwRead, nullptr)) {CleanupLHistory(); return false;}
 	// Bufor ANSI/UTF-8 -> Unicode
-	int wideLen = MultiByteToWideChar(CP_UTF8, 0, reinterpret_cast<LPCSTR>(pBuffer), dwRead, nullptr, 0);
-	LPWSTR pWide = static_cast<LPWSTR>(HeapAlloc(GetProcessHeap(), 0, (wideLen + 1) * sizeof(WCHAR)));
+	const int wideLen = MultiByteToWideChar(CP_UTF8, 0, reinterpret_cast<LPCSTR>(pBuffer), dwRead, nullptr, 0);
+	LPWSTR pWide = static_cast<LPWSTR>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, (wideLen + 1) * sizeof(WCHAR)));
 	MultiByteToWideChar(CP_UTF8, 0, reinterpret_cast<LPCSTR>(pBuffer), dwRead, pWide, wideLen);
 	pWide[wideLen] = L'\0';
 	// Ustaw tekst w kontrolce EDIT.

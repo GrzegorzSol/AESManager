@@ -1,7 +1,7 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: GsAboutLibrary.cpp
-// Data: 28.11.2025, 19:40
+// Data: 6.12.2025, 17:41
 
 //
 // Created by GrzegorzS on 23.11.2025.
@@ -10,6 +10,7 @@
 #include "GsAboutLibrary.h"
 #include "AESManager_resource.h"
 #include "MyVersion.h"
+#include <pathcch.h>
 #include <Strsafe.h>
 #include <gdiplus.h>
 #include <commctrl.h>
@@ -19,6 +20,9 @@ extern ULONG_PTR gdiplusToken;
 constexpr TCHAR GL_FILENAME_LOGO[] = TEXT("Logo.png");
 
 void __fastcall OnInitDialog(HWND hDlg);
+/*
+	MessageBox(nullptr, TEXT("Tekst sprawdzający"), TEXT("Informacja"), MB_ICONINFORMATION);
+*/
 
 INT_PTR CALLBACK GsAboutDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 /**
@@ -41,10 +45,17 @@ INT_PTR CALLBACK GsAboutDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM l
 						LPDRAWITEMSTRUCT dis = reinterpret_cast<LPDRAWITEMSTRUCT>(lParam);
 						if (dis->CtlID == IDC_LOGO)
 						{
+								TCHAR szDirApplic[MAX_PATH];
+								// Aktualny katalog aplikacji
+								GetModuleFileName(nullptr, szDirApplic, MAX_PATH);
+								PathCchRemoveFileSpec(szDirApplic, MAX_PATH);
+								// Stworzenie ścieżki do pliku konfiguracji
+								PathCchCombine(szDirApplic, MAX_PATH, szDirApplic, GL_FILENAME_LOGO);
+
 								Gdiplus::Graphics g(dis->hDC);
 								g.SetSmoothingMode(Gdiplus::SmoothingModeHighQuality);
 
-								Gdiplus::Image logo(GL_FILENAME_LOGO); // plik PNG w katalogu aplikacji
+								Gdiplus::Image logo(szDirApplic); // plik PNG w katalogu aplikacji
 								g.DrawImage(&logo,
 										static_cast<Gdiplus::REAL>(dis->rcItem.left),
 										static_cast<Gdiplus::REAL>(dis->rcItem.top),
