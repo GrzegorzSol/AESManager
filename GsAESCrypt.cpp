@@ -1,110 +1,28 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: GsAESCrypt.cpp
-// Data: 6.12.2025, 17:41
+// Data: 12.12.2025, 17:31
 
 //
 // Created by GrzegorzS on 17.10.2025.
 //
-/* OPISY SPECJALISTYCZNYCH FUNKCJI, KTÓRE WYSTĘPUJĄ W BIERZĄCYM PLIKU
-	1.Funkcja BCryptOpenAlgorithmProvider ładuje i inicjalizuje dostawcę algorytmu CNG.
-	NTSTATUS BCryptOpenAlgorithmProvider(
-  [out] BCRYPT_ALG_HANDLE *phAlgorithm, - Wskaźnik do zmiennej BCRYPT_ALG_HANDLE, która otrzymuje handle dostawcy CNG.
-																					Po zakończeniu używania tego uchwytu zwolnij go, przekazując do funkcji BCryptCloseAlgorithmProvider.
-  [in] LPCWSTR pszAlgId, - Wskaźnik do ciągu Unicode zakończonego zerem, który identyfikuje żądany algorytm kryptograficzny.
-													 Może to być jeden ze standardowych identyfikatorów algorytmu CNG lub identyfikator innego zarejestrowanego algorytmu.
-  [in, optional] LPCWSTR pszImplementation, - Wskaźnik do ciągu Unicode zakończonego zerem, który identyfikuje konkretnego dostawcę do załadowania.
-																						  Jest to zarejestrowany alias dostawcy kryptograficznych prymitywów. Ten parametr jest opcjonalny i może być,
-																							jeśli nie jest potrzebny. Jeśli ten parametr to, zostanie załadowany domyślny dostawca dla określonego algorytmu.
-  [in] ULONG dwFlags-Flagi modyfikujące zachowanie funkcji. Może to być zero lub kombinacja jednej, lub więcej z następujących wartości
-	);
-	===========================================================================
-	2.Funkcja BCryptGetProperty pobiera wartość nazwanej właściwości dla obiektu CNG.
-	*NTSTATUS BCryptGetProperty(
-	[in] BCRYPT_HANDLE hObject, - Uchwyt reprezentujący obiekt CNG do uzyskania wartości właściwości.
-	[in] LPCWSTR pszProperty, - Wskaźnik do ciągu Unicode zakończonego zerem, który zawiera nazwę własności do pobrania
-	[out] PUCHAR pbOutput, - Adres bufora, który otrzymuje wartość właściwości. Parametr cbOutput zawiera rozmiar tego bufora.
-	[in] ULONG cbOutput, - Rozmiar bufora pbOutput w bajtach.
-	[out] ULONG *pcbResult, - Wskaźnik do zmiennej ULONG, który otrzymuje liczbę bajtów skopiowanych do bufora pbOutput.
-														Jeśli parametr pbOutput to, funkcja ta umieszcza wymagany rozmiar, w bajtach,
-														w miejscu wskazanym przez ten parametr.NULL
-	[in] ULONG dwFlags, - Zestaw flag, które modyfikują zachowanie tej funkcji. Dla tej funkcji nie są zdefiniowane żadne flagi.
-	);
-	===========================================================================
-	3.Funkcja BCryptCreateHash jest wywoływana do utworzenia obiektu hash lub Message Authentication Code (MAC).
-	NTSTATUS BCryptCreateHash(
-	[in, out] BCRYPT_ALG_HANDLE hAlgorithm, - Handle dostawcy algorytmu obsługującego interfejs hash lub MAC.
-																						 Ten uchwyt uzyskuje się przez wywołanie funkcji BCryptOpenAlgorithmProvider
-																						 lub może być pseudo-uchwytem algorytmu CNG.
-	[out] BCRYPT_HASH_HANDLE *phHash, - Wskaźnik do wartości BCRYPT_HASH_HANDLE, który otrzymuje uchwyt reprezentujący hash lub obiekt MAC.
-																			Ten uchwyt jest używany w kolejnych funkcjach haszujących lub MAC,
-																			takich jak funkcja BCryptHashData. Gdy skończysz używać tego uchwytu, zwolnij go,
-																			przekazując do funkcji BCryptDestroyHash.
-	[out, optional] PUCHAR pbHashObject, - Wskaźnik do bufora, który odbiera hash lub obiekt MAC. Parametr cbHashObject zawiera rozmiar tego bufora.
-																				 Wymagany rozmiar tego bufora można uzyskać, wywołując funkcję BCryptGetProperty,
-																				 aby uzyskać właściwość BCRYPT_OBJECT_LENGTH z uchwytu algorytmu.
-																				 To poda rozmiar hashu lub obiektu MAC dla określonego algorytmu.
-																				 Ta pamięć może zostać zwolniona dopiero po zniszczeniu uchwytu wskazanego przez parametr phHash.
-																				 Jeśli wartość tego parametru wynosi, a wartość parametru cbHashObject jest równa zeru,
-																				 pamięć dla obiektu skrótu jest przydzielana przez tę funkcję i uwalniana przez BCryptDestroyHash.
-																				 Windows 7: Ta funkcja zarządzania pamięcią jest dostępna od Windows 7.NULL
-	[in] ULONG cbHashObject, - Rozmiar bufora pbHashObject w bajtach. Jeśli wartość tego parametru wynosi zero,
-														 a wartość parametru pbHashObject to, pamięć dla kluczowego obiektu jest alokowana przez tę funkcję
-														 i uwalniana przez BCryptDestroyHash. Windows 7: Ta funkcja zarządzania pamięcią jest dostępna od Windows 7.NULL
-	[in, optional] PUCHAR pbSecret, - Wskaźnik do bufora zawierającego klucz do użycia dla MAC. Parametr cbSecret zawiera rozmiar tego bufora.
-																		Jeśli jest używany z algorytmem skrótu, algorytm musi zostać promowany do HMAC
-																		za pomocą flagi BCRYPT_ALG_HANDLE_HMAC w BCryptOpenAlgorithmProvider.
-																		Aby obliczyć skrót, ustaw ten parametr na .NULL
-	[in] ULONG cbSecret, - Rozmiar bufora pbSecret, wyrażony w bajtach. Jeśli nie używamy klucza, ustaw ten parametr na zero.
-	[in] ULONG dwFlags-Flagi modyfikujące zachowanie funkcji. Może to być wartość zerowa.
-	);
-	===========================================================================
-	4.Funkcja BCryptHashData dodaje dane do bieżącego obliczenia kryptograficznego skrótu lub kodu uwierzytelniania wiadomości (MAC).
-	NTSTATUS BCryptHashData(
-  [in, out] BCRYPT_HASH_HANDLE hhash, - Uchwyt hashu lub obiektu MAC, którego używa się do wykonania operacji.
-																				Ten uchwyt uzyskuje się, wywołując funkcje BCryptCreateHash lub BCryptDuplicateHash.
-  [in] PUCHAR pbinput, - Wskaźnik do bufora zawierającego dane do przetworzenia. Parametr cbInput zawiera liczbę bajtów w tym buforze.
-												 Funkcja ta nie modyfikuje zawartości tego bufora.
-  [in] ULONG cbInput, - Rozmiar bufora pbInput w bajtach.
-  [in] ULONG dwFlags-Zestaw flag, które modyfikują zachowanie tej funkcji. Obecnie nie ma żadnych flag, więc ten parametr powinien być zerowy.
-	);
-	===========================================================================
-	5.Funkcja BCryptFinishHash pobiera wartość skrótu lub kodu uwierzytelniania wiadomości (MAC) dla danych zgromadzonych podczas wcześniejszych wywołań do BCryptHashData.
-	NTSTATUS BCryptFinishHash(
-  [in, out] BCRYPT_HASH_HANDLE hHash, - Uchwyt hashu lub obiektu MAC, którego używa się do wykonania operacji. Ten uchwyt uzyskuje się, wywołując funkcje BCryptCreateHash
-																				lub BCryptDuplicateHash. Po wywołaniu tej funkcji uchwyt hHash nie może być ponownie użyty,
-																				chyba że został utworzony z flagą BCRYPT_HASH_REUSABLE_FLAG.
-  [out] PUCHAR pbOutput, - Wskaźnik do bufora, który otrzymuje wartość skrótu lub MAC. Parametr cbOutput zawiera rozmiar tego bufora.
-  [in] ULONG cbOutput, - Rozmiar bufora pbOutput w bajtach. Ten rozmiar musi dokładnie odpowiadać rozmiarowi hasha lub wartości MAC,
-												 jeśli ma stały rozmiar. Rozmiar można uzyskać, wywołując funkcję BCryptGetProperty, aby uzyskać własność BCRYPT_HASH_LENGTH.
-												 To poda rozmiar hashu lub wartości MAC dla określonego algorytmu. Funkcje rozszerzalne (XOF), takie jak SHAKE256,
-												 mogą obsługiwać zmienny rozmiar wyjścia, ale domyślny rozmiar zapewniający pełne bezpieczeństwo XOF może być zapytywany za pomocą BCRYPT_HASH_LENGTH.
-  [in] ULONG dwFlags-Zestaw flag, które modyfikują zachowanie tej funkcji. Może to być zero lub kombinacja jednej lub więcej z następujących wartości
-	);
-	===========================================================================
-	6.BCryptCloseAlgorithmProvider
-	===========================================================================
-	7.BCryptGenerateSymmetricKey
-	===========================================================================
-	8.BCryptDestroyKey
-	===========================================================================
-	9.BCryptEncrypt
-	===========================================================================
-	10.BCryptDecrypt
-	===========================================================================
-	11.CryptBinaryToString
-	===========================================================================
-	12.CryptStringToBinary
-	===========================================================================
-	13.MultiByteToWideChar
-*/
+
 #define UNICODE
 #include "GsAESCrypt.h"
 #include <bcrypt.h>
 #include <wincrypt.h>
 #include <Strsafe.h>
+//#include <winternl.h>
 
 #define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
+
+// Tymczasowa zmienna tekstowa dla debugowania
+constexpr int glMaxIfoDebug = 2048;
+TCHAR Gl_szInfoDebug[glMaxIfoDebug];
+/*
+StringCchPrintf(Gl_szInfoDebug, glMaxIfoDebug, TEXT("Długość hasha: %d"), Hash.cbDataLength);
+MessageBox(nullptr, Gl_szInfoDebug, TEXT("Informacja"), MB_ICONINFORMATION);
+ */
 
 //=========================== METODY PRYWATNE POMOCNICZE ====================
 static __fastcall bool _ReadWholeFile(LPCWSTR lpszFilePath, AESResult* pOut);
@@ -195,7 +113,7 @@ __fastcall AESResult GsAESFunComputeSHAHash(LPCWSTR pszText, const enSizeSHABit 
 		return result;
 	}
 
-	// Hashowanie SHA-256, lub SHA-512
+	// Hashowanie SHA-256 lub SHA-512
 	if(enTypeHash == enSizeSHABit_256) // SHA-256
 		status = BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_SHA256_ALGORITHM, nullptr, 0);
 	else if(enTypeHash == enSizeSHABit_512) // SHA-512
@@ -471,7 +389,7 @@ __fastcall bool GsAESBasic::GsAESBasicCryptFile(const AESResult &Hash, LPCWSTR l
 			CleanupCrypt();
 			return false;
 		}
-		// Otwórz algorytm AES
+		// Otwórz algorytm AES.
 		status = BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_AES_ALGORITHM, nullptr, 0);
 		if(!BCRYPT_SUCCESS(status))
 		{
@@ -550,7 +468,7 @@ __fastcall bool GsAESBasic::GsAESBasicCryptFile(const AESResult &Hash, LPCWSTR l
 //---------------------------------------------------------------------------
 __fastcall bool GsAESBasic::GsAESBasicDecryptFile(const AESResult &Hash, LPCWSTR lpszFileInput, LPCWSTR lpszFileOutput, enSizeKey enAESKey)
 /**
-	OPIS METOD(FUNKCJI): Właściwe szyfrowanie, lub odszyfrowywania.
+	OPIS METOD(FUNKCJI): Właściwe szyfrowanie lub odszyfrowywania.
 	OPIS ARGUMENTÓW: [in] - const SHAResult &Hash - Wygenerowany wcześnie hash z hasła w funkcji ComputeSHAHash().
 					 [in] - LPCWSTR lpszFileInput-ścieżka dostępu do pliku wejściowego.
 					 [in] - LPCWSTR lpszFileOutput-ścieżka dostępu do pliku wyjściowego.
@@ -559,7 +477,7 @@ __fastcall bool GsAESBasic::GsAESBasicDecryptFile(const AESResult &Hash, LPCWSTR
 	OPIS ZMIENNYCH:
 */
 {
-	// Odszyfrowywaanie za pomocą BCrypt
+	// Odszyfrowywanie za pomocą BCrypt
 	BCRYPT_ALG_HANDLE hAlg = nullptr;
 	BCRYPT_KEY_HANDLE hKey = nullptr;
 	NTSTATUS status=1;
@@ -687,7 +605,7 @@ __fastcall bool GsAESBasic::GsAESBasicDecryptFile(const AESResult &Hash, LPCWSTR
 			CleanupDecrypt();
 			return false;
 		}
-		// Otwórz algorytm AES
+		// Otwórz algorytm AES.
 		status = BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_AES_ALGORITHM, nullptr, 0);
 		if(!BCRYPT_SUCCESS(status))
 		{
@@ -696,7 +614,7 @@ __fastcall bool GsAESBasic::GsAESBasicDecryptFile(const AESResult &Hash, LPCWSTR
 			CleanupDecrypt();
 			return false;
 		}
-		// Ustaw tryb na CBC
+		// Ustaw tryb na CBC.
 		status = BCryptSetProperty(hAlg, BCRYPT_CHAINING_MODE, (PUCHAR)BCRYPT_CHAIN_MODE_CBC, sizeof(BCRYPT_CHAIN_MODE_CBC), 0);
 		if(!BCRYPT_SUCCESS(status))
 		{
@@ -705,7 +623,7 @@ __fastcall bool GsAESBasic::GsAESBasicDecryptFile(const AESResult &Hash, LPCWSTR
 			CleanupDecrypt();
 			return false;
 		}
-		// Utwórz klucz
+		// Utwórz klucz.
 		status = BCryptGenerateSymmetricKey(hAlg, &hKey, nullptr, 0, (PUCHAR)KEY.pbData, KEY.cbDataLength, 0);
 		if(!BCRYPT_SUCCESS(status))
 		{
@@ -783,8 +701,16 @@ __fastcall bool GsAESPro::GsAESProCryptFile(const AESResult &Hash, LPCWSTR lpszF
 	BCRYPT_ALG_HANDLE hKdf=nullptr;
 	BCRYPT_ALG_HANDLE hAes=nullptr;
 	BCRYPT_KEY_HANDLE hKey=nullptr;
-	BYTE derived[48] = {};           // 32B Key + 16B IV.
 	BYTE *pOutput=nullptr;
+
+	// Wybór algorytmu PRF
+	const DWORD cbKeyLen   = (enAESKey == enSizeKey_128) ? 16 : 32;
+	const DWORD cbDerived  = cbKeyLen + 16; // Key + IV
+	BYTE *derived    = static_cast<BYTE*>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, cbDerived));
+	if(!derived) return false;
+	const LPCWSTR prfAlg = (enAESKey == enSizeKey_128) ? BCRYPT_SHA256_ALGORITHM : BCRYPT_SHA512_ALGORITHM;
+	// StringCchPrintf(Gl_szInfoDebug, glMaxIfoDebug, TEXT("PRF: %s, Długość hasha: %d"), prfAlg, Hash.cbDataLength);
+	// MessageBox(nullptr, Gl_szInfoDebug, TEXT("Informacja"), MB_ICONINFORMATION);
 
 	// Walidacja argumentów
 	if (!Hash.pbData || Hash.cbDataLength == 0 || !lpszFileInput || !lpszFileOutput) return false;
@@ -801,6 +727,7 @@ __fastcall bool GsAESPro::GsAESProCryptFile(const AESResult &Hash, LPCWSTR lpszF
 		if(hAes) {BCryptCloseAlgorithmProvider(hAes, 0); hAes = nullptr;}
 		SecureZeroMemory(&derived, sizeof(derived));
 		if(pOutput) {HeapFree(GetProcessHeap(), 0, pOutput); pOutput = nullptr;}
+		if(derived) {HeapFree(GetProcessHeap(), 0, derived); derived = nullptr;}
 	};
 	
 	// Opcjonalna walidacja długości ścieżek (bez używania A/W sufiksów)
@@ -809,68 +736,337 @@ __fastcall bool GsAESPro::GsAESProCryptFile(const AESResult &Hash, LPCWSTR lpszF
 	if(FAILED(StringCchLength(lpszFileOutput, MAX_PATH, &cchOut))) return false;
 	
 	// 1) Wczytaj cały plik źródłowy do pamięci.
-	if(!_ReadWholeFile(lpszFileInput, &Plain)) {CleanupCryptPro(); return false;}
+	if(!_ReadWholeFile(lpszFileInput, &Plain))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji _ReadWholeFile!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupCryptPro(); return false;
+	}
 
 	// 2) Przygotuj Salt (16 bajtów) zapisany razem z plikiem.
 	BYTE Salt[16] = {};
 	if(BCryptGenRandom(nullptr, Salt, sizeof(Salt), BCRYPT_USE_SYSTEM_PREFERRED_RNG) != 0)
-		{CleanupCryptPro(); return false;}
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptGenRandom!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupCryptPro(); return false;
+	}
 
 	// 3) PBKDF2: Hash + Salt + Iteracje → Derived (Key 32B + IV 16B)
-	const DWORD iterations = 100000; // Stała; można wpisać do nagłówka w przyszłości, jeśli zamienialna.
+	constexpr ULONGLONG iterations = 100000; // Stała; można wpisać do nagłówka w przyszłości, jeśli zamienialna.
 
+	status = BCryptOpenAlgorithmProvider(&hKdf, prfAlg, MS_PRIMITIVE_PROVIDER, BCRYPT_ALG_HANDLE_HMAC_FLAG);
+	if(!BCRYPT_SUCCESS(status))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptOpenAlgorithmProvider!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupCryptPro(); return false;
+	}
 
-	status = BCryptOpenAlgorithmProvider(&hKdf, BCRYPT_PBKDF2_ALGORITHM, MS_PRIMITIVE_PROVIDER, 0);
-	if(status != 0) {CleanupCryptPro(); return false;}
-
-	status = BCryptDeriveKeyPBKDF2(hKdf, (PUCHAR)Hash.pbData, Hash.cbDataLength, Salt,
-		(ULONG)sizeof(Salt), iterations, derived, (ULONG)sizeof(derived), 0);
+	status = BCryptDeriveKeyPBKDF2(hKdf, (PUCHAR)Hash.pbData, (ULONG)Hash.cbDataLength, (PUCHAR)Salt,
+		(ULONG)sizeof(Salt), iterations, (PUCHAR)derived, (ULONG)cbDerived, 0);
 	BCryptCloseAlgorithmProvider(hKdf, 0); hKdf = nullptr;
-	if(status != 0) {CleanupCryptPro(); return false;}
+	if(!BCRYPT_SUCCESS(status))
+	{
+		TCHAR szError[MAX_PATH];
+		StringCchPrintf(szError, MAX_PATH, TEXT("Błąd funkcji BCryptDeriveKeyPBKDF2! Nr: 0x%X. Długość hasha: %d"), status, Hash.cbDataLength);
+		MessageBox(nullptr, szError, TEXT("Błąd"), MB_ICONERROR);
+		CleanupCryptPro(); return false;
+	}
 
-	BYTE *pKey = derived;        // 32B
-	BYTE *pIV  = derived + 32;   // 16B
+	BYTE *pKey = derived;				 // 16B lub 32B
+	BYTE *pIV	 = derived + cbKeyLen;	 // 16B
 
 	// 4) Przygotuj AES-256 CBC.
 	status = BCryptOpenAlgorithmProvider(&hAes, BCRYPT_AES_ALGORITHM, MS_PRIMITIVE_PROVIDER, 0);
-	if (status != 0) {CleanupCryptPro(); return false;}
+	if(!BCRYPT_SUCCESS(status))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptOpenAlgorithmProvider!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupCryptPro(); return false;
+	}
 
 	// Ustaw tryb CBC (zalecany klasyczny blokowy z paddingiem).
 	status = BCryptSetProperty(hAes, BCRYPT_CHAINING_MODE, (PUCHAR)BCRYPT_CHAIN_MODE_CBC,
-		(ULONG)sizeof(BCRYPT_CHAIN_MODE_CBC), 0);
-	if (status != 0) {CleanupCryptPro(); return false;}
+		(ULONG)(sizeof(WCHAR) * (lstrlen(BCRYPT_CHAIN_MODE_CBC) + 1)), 0);
+	if(!BCRYPT_SUCCESS(status))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptSetProperty!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupCryptPro(); return false;
+	}
 
-	// Utworzenie klucza symetrycznego z pKey (32B dla AES-256)
-	status = BCryptGenerateSymmetricKey(hAes, &hKey, nullptr, 0, pKey, 32, 0);
-		if (status != 0) {CleanupCryptPro(); return false;}
+	// Utworzenie klucza symetrycznego z pKey (16B dla AES-128, 32B dla AES-256)
+	status = BCryptGenerateSymmetricKey(hAes, &hKey, nullptr, 0, pKey, cbKeyLen, 0);
+	//if(status != 0)
+	if(!BCRYPT_SUCCESS(status))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptGenerateSymmetricKey!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupCryptPro(); return false;
+	}
 
 	// 5) Wyznacz rozmiar ciphertext (z paddingiem).
 	DWORD cbCipher = 0;
-	status = BCryptEncrypt(hKey, (PUCHAR)Plain.pbData, Plain.cbDataLength, nullptr, pIV, 16,
+	BYTE ivQuery[16]; memcpy(ivQuery, pIV, 16); // KOPIA IV dla query
+	status = BCryptEncrypt(hKey, (PUCHAR)Plain.pbData, Plain.cbDataLength, nullptr, ivQuery, 16,
 		nullptr, 0, &cbCipher, BCRYPT_BLOCK_PADDING);
-	if (status != 0 || cbCipher == 0) {CleanupCryptPro(); return false;}
+	if(!BCRYPT_SUCCESS(status) || cbCipher == 0)
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptEncrypt!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupCryptPro(); return false;
+	}
 
 	// 6) Alokuj bufor na [Salt + Ciphertext]
-	//    Zapisujemy Salt (16B) przed ciphertext – minimalny, bezpieczny nagłówek.
+	if(cbCipher > (MAXDWORD - static_cast<DWORD>(sizeof(Salt))))
+	{
+		MessageBox(nullptr, TEXT("Zbyt duży rozmiar danych do zapisu."), TEXT("Błąd"), MB_ICONERROR);
+		CleanupCryptPro(); return false;
+	}
+	//		Zapisujemy Salt (16B) przed ciphertext – minimalny, bezpieczny nagłówek.
 	DWORD cbOutputTotal = static_cast<DWORD>(sizeof(Salt)) + cbCipher;
 	pOutput = static_cast<BYTE*>(HeapAlloc(GetProcessHeap(), 0, cbOutputTotal));
-	if (!pOutput) {CleanupCryptPro(); return false;}
+	if(!pOutput)
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji HeapAlloc!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupCryptPro(); return false;
+	}
 
 	// 7) Skopiuj Salt do wyjścia.
 	memcpy(pOutput, Salt, sizeof(Salt));
 
-	// 8) Wykonaj szyfrowanie do bufora wyjściowego (za Salt)
+	// 8) Wykonaj szyfrowanie do bufora wyjściowego (za Salt).
 	DWORD cbWritten = 0;
-	status = BCryptEncrypt(hKey, (PUCHAR)Plain.pbData, Plain.cbDataLength, nullptr, pIV,
+	BYTE ivRun[16]; memcpy(ivRun, pIV, 16); // DRUGA KOPIA IV dla właściwego szyfrowania
+	status = BCryptEncrypt(hKey, (PUCHAR)Plain.pbData, Plain.cbDataLength, nullptr, ivRun,
 		16, pOutput + sizeof(Salt), cbCipher, &cbWritten, BCRYPT_BLOCK_PADDING);
-	if (status != 0 || cbWritten != cbCipher) {CleanupCryptPro(); return false;}
+	if(!BCRYPT_SUCCESS(status) || cbWritten != cbCipher)
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptEncrypt!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupCryptPro(); return false;
+	}
+	// HMAC
+	BYTE hmac[32] = {};
+	if(!GsAESPro::_GsAESProComputeHMAC(pKey, cbKeyLen, pOutput, cbOutputTotal, hmac))
+	{CleanupCryptPro(); return false;}
 
 	// 9) Zapisz [Salt + Ciphertext] do pliku wyjściowego.
-	if(!_WriteWholeFile(lpszFileOutput, pOutput, cbOutputTotal)) {CleanupCryptPro(); return false;}
+	if(!_WriteWholeFile(lpszFileOutput, pOutput, cbOutputTotal))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji _WriteWholeFile!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupCryptPro(); return false;
+	}
 
+	CleanupCryptPro();
 	bResult = true;
 	return bResult;
 }
+//---------------------------------------------------------------------------
+__fastcall bool GsAESPro::_GsAESProComputeHMAC(const BYTE *pKey, DWORD cbKeyLen, const BYTE *pbData, DWORD cbDataLen, BYTE hmacOut[32])
+/**
+	OPIS METOD(FUNKCJI): Oblicza HMAC-SHA256 dla bufora danych przy użyciu klucza.
+	OPIS ARGUMENTÓW: [in] - const BYTE *pKey-Wskaźnik na klucz (16B dla AES-128, 32B dla AES-256).
+									 [in] - DWORD cbKeyLen-Długość klucza w bajtach.
+									 [in] - const BYTE *pbData-Wskaźnik na dane wejściowe (Salt + Ciphertext).
+									 [in] - DWORD cbDataLen-Długość danych wejściowych.
+									 [out] - BYTE hmacOut[32]-Bufor wyjściowy na HMAC (32 bajty).
+	OPIS ZMIENNYCH:
+	OPIS WYNIKU METODY(FUNKCJI): true, jeśli sukces, false, jeśli błąd.
+	UWAGI:
+*/
+{
+	NTSTATUS status;
+	BCRYPT_ALG_HANDLE hHmacAlg = nullptr;
+	BCRYPT_HASH_HANDLE hHash = nullptr;
+
+	status = BCryptOpenAlgorithmProvider(&hHmacAlg, BCRYPT_SHA256_ALGORITHM, MS_PRIMITIVE_PROVIDER, BCRYPT_ALG_HANDLE_HMAC_FLAG);
+	if(!BCRYPT_SUCCESS(status)) return false;
+
+	status = BCryptCreateHash(hHmacAlg, &hHash, nullptr, 0, (PUCHAR)pKey, cbKeyLen, 0);
+	if(!BCRYPT_SUCCESS(status))
+	{
+		BCryptCloseAlgorithmProvider(hHmacAlg,0); hHmacAlg = nullptr; return false;
+	}
+
+	status = BCryptHashData(hHash, (PUCHAR)pbData, cbDataLen, 0);
+	if(!BCRYPT_SUCCESS(status))
+	{
+		BCryptDestroyHash(hHash); hHash = nullptr;
+		BCryptCloseAlgorithmProvider(hHmacAlg,0); hHmacAlg = nullptr; return false;
+	}
+
+	status = BCryptFinishHash(hHash, hmacOut, 32, 0);
+	BCryptDestroyHash(hHash);
+	BCryptCloseAlgorithmProvider(hHmacAlg,0);
+
+	return BCRYPT_SUCCESS(status);
+}
+//---------------------------------------------------------------------------
+__fastcall bool GsAESPro::GsAESProDecryptFile(const AESResult &Hash, LPCWSTR lpszFileInput, LPCWSTR lpszFileOutput, enSizeKey enAESKey)
+/**
+	OPIS METOD(FUNKCJI): Odszyfrowuje plik AES-256 CBC z PBKDF2 (Hash jako „password bytes”)
+	OPIS ARGUMENTÓW: [in] - const SHAResult &Hash - Wygenerowany hash z hasła w funkcji ComputeSHAHash().
+													LPCWSTR lpszFileInput-Ścieżka dostępu do pliku, który będzie zaszyfrowany
+													LPCWSTR lpszFileOutput-Ścieżka dostępu do zaszyfrowanego pliku
+	OPIS ZMIENNYCH:
+	OPIS WYNIKU METODY(FUNKCJI): Struktura SHAResult zawierająca 32 bajty, lub 64 bajty skrótu
+															 TRUE: sukces, plik odszyfrowany i zapisany
+															 FALSE: błąd
+	UWAGI:
+*/
+{
+	bool bResult=false;
+	NTSTATUS status=1;
+	AESResult Enc = {nullptr, 0};
+	BCRYPT_ALG_HANDLE hKdf=nullptr;
+	BCRYPT_ALG_HANDLE hAes=nullptr;
+	BCRYPT_KEY_HANDLE hKey=nullptr;
+	BYTE *pPlain=nullptr;
+
+	// Wybór algorytmu PRF
+	const DWORD cbKeyLen   = (enAESKey == enSizeKey_128) ? 16 : 32;
+	const DWORD cbDerived  = cbKeyLen + 16; // Key + IV
+	BYTE *derived    = static_cast<BYTE*>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, cbDerived));
+	if(!derived) return false;
+	const LPCWSTR prfAlg = (enAESKey == enSizeKey_128) ? BCRYPT_SHA256_ALGORITHM : BCRYPT_SHA512_ALGORITHM;
+	// StringCchPrintf(Gl_szInfoDebug, glMaxIfoDebug, TEXT("PRF: %s, Długość hasha: %d"), prfAlg, Hash.cbDataLength);
+	// MessageBox(nullptr, Gl_szInfoDebug, TEXT("Informacja"), MB_ICONINFORMATION);
+	
+	if (!Hash.pbData || Hash.cbDataLength == 0 || !lpszFileInput || !lpszFileOutput) return false;
+	
+	auto CleanupDecryptPro = [&]()
+	/**
+		OPIS METOD(FUNKCJI): Funkcja zwalniająca zarezerwowane zasoby podczas błędu
+												 lub zakończenia nadrzędnej funkcji typu lambda
+	*/
+	{
+		if(hKey) {BCryptDestroyKey(hKey); hKey = nullptr;}
+		if(Enc.pbData) {HeapFree(GetProcessHeap(), 0, Enc.pbData); Enc.pbData = nullptr;}
+		if(pPlain) {HeapFree(GetProcessHeap(), 0, pPlain); pPlain = nullptr;}
+		if(hKdf) {BCryptCloseAlgorithmProvider(hKdf, 0); hKdf = nullptr;}
+		if(hAes) {BCryptCloseAlgorithmProvider(hAes, 0); hAes = nullptr;}
+		if(derived) {HeapFree(GetProcessHeap(), 0, derived); derived = nullptr;}
+	};
+
+	size_t cchIn=0, cchOut=0;
+	if(FAILED(StringCchLength(lpszFileInput, MAX_PATH, &cchIn))) return false;
+	if(FAILED(StringCchLength(lpszFileOutput, MAX_PATH, &cchOut))) return false;
+	
+	// 1) Wczytaj plik wejściowy.
+	if(!_ReadWholeFile(lpszFileInput, &Enc)) {CleanupDecryptPro(); return false;}
+	if(Enc.cbDataLength <= 16)
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji _ReadWholeFile!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupDecryptPro(); return false;
+	}// musi być co najmniej Salt + coś.
+
+	// 2) Rozdziel Salt i Ciphertext
+	BYTE Salt[16] = {};
+	memcpy(Salt, Enc.pbData, sizeof(Salt));
+	
+	BYTE *pCipher = Enc.pbData + sizeof(Salt);
+	DWORD cbCipher = Enc.cbDataLength - sizeof(Salt);
+	if(cbCipher < 16 || (cbCipher % 16) != 0)
+	{
+		MessageBox(nullptr, TEXT("Plik jest uszkodzony, lub nie jest z tego formatu!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupDecryptPro(); return false;
+	}
+	
+	// 3) PBKDF2: Hash + Salt → Derived (Key (16B)32B + IV 16B)
+	constexpr ULONGLONG iterations = 100000;
+
+	status = BCryptOpenAlgorithmProvider(&hKdf, prfAlg, MS_PRIMITIVE_PROVIDER, BCRYPT_ALG_HANDLE_HMAC_FLAG);
+	if(!BCRYPT_SUCCESS(status))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptOpenAlgorithmProvider!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupDecryptPro(); return false;
+	}
+	
+	status = BCryptDeriveKeyPBKDF2(hKdf, (PUCHAR)Hash.pbData, (ULONG)Hash.cbDataLength,  (PUCHAR)Salt,
+		(ULONG)sizeof(Salt), iterations, (PUCHAR)derived, (ULONG)cbDerived, 0);
+
+	BCryptCloseAlgorithmProvider(hKdf, 0);
+	if(!BCRYPT_SUCCESS(status))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptDeriveKeyPBKDF2!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupDecryptPro(); return false;
+	}
+	
+	BYTE *pKey = derived;			 // 16B lub 32B
+	BYTE *pIV	 = derived + cbKeyLen; // 16B
+
+	// 3b) Weryfikacja HMAC
+	BYTE hmac[32] = {};
+	if(!GsAESPro::_GsAESProComputeHMAC(pKey, cbKeyLen, Enc.pbData, sizeof(Salt)+cbCipher, hmac))
+	{
+		CleanupDecryptPro(); return false;
+	}
+
+	// 4) AES-256 lub AES-128 CBC
+	status = BCryptOpenAlgorithmProvider(&hAes, BCRYPT_AES_ALGORITHM, MS_PRIMITIVE_PROVIDER, 0);
+	if(!BCRYPT_SUCCESS(status))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptOpenAlgorithmProvider!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupDecryptPro(); return false;
+	}
+	
+	status = BCryptSetProperty(hAes, BCRYPT_CHAINING_MODE, (PUCHAR)BCRYPT_CHAIN_MODE_CBC,
+		(ULONG)(sizeof(WCHAR) * (lstrlen(BCRYPT_CHAIN_MODE_CBC) + 1)), 0);
+	if(!BCRYPT_SUCCESS(status))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptSetProperty!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupDecryptPro(); return false;
+	}
+	
+	status = BCryptGenerateSymmetricKey(hAes, &hKey, nullptr, 0, pKey, cbKeyLen, 0);
+	if(!BCRYPT_SUCCESS(status))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptGenerateSymmetricKey!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupDecryptPro(); return false;
+	}
+	
+	// 5) Wyznacz rozmiar plaintext.
+	DWORD cbPlain = 0;
+	BYTE ivQuery[16]; memcpy(ivQuery, pIV, 16); // PIERWSZA, niezależna kopia IV
+	status = BCryptDecrypt(hKey, pCipher, cbCipher, nullptr, ivQuery, 16, nullptr, 0,
+		&cbPlain, BCRYPT_BLOCK_PADDING);
+	if(!BCRYPT_SUCCESS(status)) // || cbPlain == 0)
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptDecrypt() (zapytanie o rozmiar).!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupDecryptPro(); return false;
+	}
+	// if(cbCipher < 16)
+	// {
+	// 	MessageBox(nullptr, TEXT("Błąd funkcji BCryptDecrypt() (błąd formatu).!"), TEXT("Błąd"), MB_ICONERROR);
+	// 	CleanupDecryptPro(); return false;
+	// 	/* błąd formatu */
+	// }
+	// 6) Odszyfruj do bufora.
+	pPlain = static_cast<BYTE*>(HeapAlloc(GetProcessHeap(), 0, cbPlain));
+	if(!pPlain)
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji HeapAlloc!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupDecryptPro(); return false;
+	}
+
+	DWORD cbOut = 0;
+	BYTE ivRun[16]; memcpy(ivRun, pIV, 16); // DRUGA, niezależna kopia IV
+	status = BCryptDecrypt(hKey, pCipher, cbCipher, nullptr, ivRun, 16, pPlain,
+		cbPlain, &cbOut, BCRYPT_BLOCK_PADDING);
+	if(!BCRYPT_SUCCESS(status)) // || cbOut != cbPlain)
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptDecrypt() podczas deszyfracji!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupDecryptPro(); return false;
+	}
+	
+	// 7) Zapisz plaintext do pliku wyjściowego.
+	if(!_WriteWholeFile(lpszFileOutput, pPlain, cbOut))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji _WriteWholeFile!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupDecryptPro(); return false;
+	}
+
+	// Wymazanie materiału kluczowego
+	SecureZeroMemory(derived, sizeof(derived));
+
+	CleanupDecryptPro();
+	bResult = true;
+	return bResult;
+}	
 //---------------------------------------------------------------------------
 //============================== METODY POMOCNICZE ==========================
 __fastcall TCHAR *GsAESFunEncodeBase64(LPCWSTR pszPassword)
@@ -964,7 +1160,7 @@ __fastcall bool _ReadWholeFile(LPCWSTR lpszFilePath, AESResult *pOut)
 	BOOL bResult=false;
 	HANDLE hFile=INVALID_HANDLE_VALUE;
 	LARGE_INTEGER liSizeInput;
-	LARGE_INTEGER liSize;
+	//LARGE_INTEGER liSize;
 	BYTE* pBuf=nullptr;
 
 	if (!lpszFilePath || !pOut) return false;
@@ -975,31 +1171,39 @@ __fastcall bool _ReadWholeFile(LPCWSTR lpszFilePath, AESResult *pOut)
 												 lub zakończenia nadrzędnej funkcji typu lambda
 	*/
 	{
-		if(hFile) {CloseHandle(hFile); hFile = INVALID_HANDLE_VALUE;}
+		if(hFile != INVALID_HANDLE_VALUE) {CloseHandle(hFile); hFile = INVALID_HANDLE_VALUE;}
 		if(pBuf) {HeapFree(GetProcessHeap(), 0, pBuf); pBuf = nullptr;}
 	};
 
 	hFile = CreateFile(lpszFilePath, GENERIC_READ, FILE_SHARE_READ,
 		nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-	if(hFile == INVALID_HANDLE_VALUE) {CleanupRead(); return false;}
+	if(hFile == INVALID_HANDLE_VALUE)
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji CreateFile!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupRead(); return false;
+	}
 
 	if(!GetFileSizeEx(hFile, &liSizeInput)) {CleanupRead(); return false;}
 
 	// Ograniczenie: plik musi zmieścić się w DWORD.
 	if(liSizeInput.QuadPart <= 0 || liSizeInput.QuadPart > 0xFFFFFFFFULL) {{CleanupRead(); return false;}}
 
-	const DWORD cbSize = static_cast<DWORD>(liSize.QuadPart);
+	const DWORD cbSize = liSizeInput.QuadPart;
 	pBuf = static_cast<BYTE*>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, cbSize));
 	if(!pBuf) {CleanupRead(); return false;}
 
 	DWORD cbRead = 0;
 	if(!ReadFile(hFile, pBuf, cbSize, &cbRead, nullptr) || cbRead != cbSize)
-		{CleanupRead(); return false;}
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji ReadFile!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupRead(); return false;
+	}
 
 	pOut->pbData = pBuf;
 	pOut->cbDataLength = cbSize;
 	bResult = true;
 
+	if(hFile != INVALID_HANDLE_VALUE) {CloseHandle(hFile); hFile = INVALID_HANDLE_VALUE;}
 	return bResult;
 }
 //---------------------------------------------------------------------------
@@ -1015,23 +1219,31 @@ __fastcall bool _WriteWholeFile(LPCWSTR lpszFilePath, const BYTE* pData, DWORD c
 	bool bResult=false;
 	HANDLE hFile=INVALID_HANDLE_VALUE;
 
-	if (!lpszFilePath || !pData || cbData) return false;
+	if (!lpszFilePath || !pData || cbData==0) return false;
 
 	auto CleanupWrite = [&]()
 	/**
 		OPIS METOD(FUNKCJI): Funkcja zwalniająca zarezerwowane zasoby podczas błędu
 												 lub zakończenia nadrzędnej funkcji typu lambda
 	*/
-	{if(hFile) {CloseHandle(hFile); hFile = INVALID_HANDLE_VALUE;}};
+	{if(hFile != INVALID_HANDLE_VALUE) {CloseHandle(hFile); hFile = INVALID_HANDLE_VALUE;}};
 
 	hFile = CreateFile(lpszFilePath, GENERIC_WRITE, 0, nullptr,
 		CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-	if(hFile == INVALID_HANDLE_VALUE) {CleanupWrite(); return false;}
+	if(hFile == INVALID_HANDLE_VALUE)
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji CreateFile!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupWrite(); return false;
+	}
 
 	DWORD cbWritten = 0;
-	if(!WriteFile(hFile, pData, cbData, &cbWritten, NULL) && cbWritten == cbData)
-		{CleanupWrite(); return false;}
+	if(!WriteFile(hFile, pData, cbData, &cbWritten, nullptr) && cbWritten == cbData)
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji WriteFile!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupWrite(); return false;
+	}
 
+	CleanupWrite();
 	bResult = true;
 	return bResult;
 }

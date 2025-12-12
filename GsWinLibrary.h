@@ -1,7 +1,7 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: GsWinLibrary.h
-// Data: 6.12.2025, 17:41
+// Data: 12.12.2025, 17:31
 
 #ifndef GSWINLIBRARY_H
 #define GSWINLIBRARY_H

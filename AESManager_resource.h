@@ -1,7 +1,7 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: AESManager_resource.h
-// Data: 6.12.2025, 17:41
+// Data: 12.12.2025, 17:31
 
 #ifndef AESMANAGER_RESOURCE_H
 #define AESMANAGER_RESOURCE_H

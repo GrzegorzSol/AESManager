@@ -1,7 +1,7 @@
 ﻿// Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: MyVersion.cpp
-// Data: 6.12.2025, 17:41
+// Data: 12.12.2025, 17:31
 
 /*
 Biblioteka wspólnych metod dla wszystkich klas i modułów aplikacji. Główną klasą jest klasa Library całkowicie publiczna i statyczna.

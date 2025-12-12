@@ -1,7 +1,7 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: AESManager.h
-// Data: 6.12.2025, 17:41
+// Data: 12.12.2025, 17:31
 
 //
 // Created by GrzegorzS on 21.10.2025.
@@ -51,12 +51,15 @@ constexpr TCHAR GLOBAL_CLASS_NAME[] = TEXT("MojeOknoWinAPI"),
 	GLOBAL_MAINSECTION[] = TEXT("MAIN"),
 	GLOBAL_KEY_PASSWORD[] = TEXT("PassDefault"),
 	GLOBAL_TEXT_DEFAULT_PASSWORD[] = TEXT(""),
-	GLOBAL_KEY_TYPEAES[] = TEXT("AESType"),
+	GLOBAL_KEY_TYPEAES[] = TEXT("AESSizeType"),
+	GLOBAL_AESTYPE[] = TEXT("AESType"),
 	// Możliwe typy szyfrowania(długości klucza)
-	GLOBAL_VALUE_TYPEAES_128[] = TEXT("128"),
-	GLOBAL_VALUE_TYPEAES_256[] = TEXT("256"),
-	GLOBAL_DEFAULT_VALUE_KEY_TYPEAES[] = TEXT("256"),
-
+	GLOBAL_VALUE_SIZEAES_128[] = TEXT("128"),
+	GLOBAL_VALUE_SIZEAES_256[] = TEXT("256"),
+	// Możliwe typ szyfrowania AES
+	GLOBAL_VALUE_TYPEAES_BASIC[] = TEXT("AESBasic"),
+	GLOBAL_VALUE_TYPEAES_PROFF[] = TEXT("AESProff"),
+	// Nazwa pliku zapisanej histori operacji
 	GLOBAL_HISTORY_FILE[] = TEXT("Historia_AES.txt");
 
 constexpr int ID_START_COUNT = IDBUTTON_OPEN_FILE,

@@ -1,7 +1,7 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: GsAESCrypt.h
-// Data: 6.12.2025, 17:41
+// Data: 12.12.2025, 17:31
 
 //
 // Created by GrzegorzS on 17.10.2025.
@@ -16,6 +16,7 @@
 	#define GsAESDecryptFile GsAESBasic::GsAESBasicDecryptFile
 #else // #ifdef __AESBASIC__
 	 #define GsAESCryptFile GsAESPro::GsAESProCryptFile
+	 #define GsAESDecryptFile GsAESPro::GsAESProDecryptFile
 #endif //	#ifdef __AESBASIC__
 
 enum enSizeSHABit {enSizeSHABit_256 = 100, enSizeSHABit_512};
@@ -23,7 +24,7 @@ enum enSizeKey {enSizeKey_128 = 128, enSizeKey_256 = 256};
 enum enTypeProcess {enTypeProcess_Crypt = 500, enTypeProcess_Decrypt};
 //---------------------------------------------------------------------------
 /// Struktura: AESResult
-/// Cel:			 Przechowuje wynik skrótu, lub inny (bufor + długość)
+/// Cel:			 Przechowuje wynik skrótu lub inny (bufor + długość)
 /// Uwagi:		 Bufor należy zwolnić przez HeapFree po użyciu
 //---------------------------------------------------------------------------
 struct AESResult
@@ -60,8 +61,9 @@ class GsAESPro
 {
 	public:
 		static __fastcall bool GsAESProCryptFile(const AESResult &Hash, LPCWSTR lpszFileInput, LPCWSTR lpszFileOutput, enSizeKey enAESKey);
+		static __fastcall bool GsAESProDecryptFile(const AESResult &Hash, LPCWSTR lpszFileInput, LPCWSTR lpszFileOutput, enSizeKey enAESKey);
 	private:
-
+		static __fastcall bool _GsAESProComputeHMAC(const BYTE *pKey, DWORD cbKeyLen, const BYTE *pbData, DWORD cbDataLen, BYTE hmacOut[32]);
 };
 
 #endif //GSAESCRYPT_H

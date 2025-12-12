@@ -40,6 +40,6 @@ add_executable(AESManager WIN32 ${MAIN_SOURCE} MyVersion.h MyVersion.cpp ${MAIN_
         AESManager.h GsAboutLibrary.cpp GsAboutLibrary.h)
 
 # Linkujemy biblioteki WinAPI
-target_link_libraries(AESManager PRIVATE VERSION COMCTL32 SHLWAPI PATHCCH BCRYPT CRYPT32 GDIPLUS)
+target_link_libraries(AESManager PRIVATE VERSION COMCTL32 SHLWAPI PATHCCH BCRYPT CRYPT32 GDIPLUS)# NTDLL)
 
 message("NEW_VERSION: " ${NEW_VERSION})

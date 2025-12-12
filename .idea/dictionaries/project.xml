@@ -3,6 +3,7 @@
     <words>
       <w>aesbasic</w>
       <w>arraysize</w>
+      <w>bierzącym</w>
       <w>bottpanel</w>
       <w>cimaxlongtexthint</w>
       <w>commdlg</w>
@@ -29,9 +30,11 @@
       <w>hstatusbar</w>
       <w>htoolbar</w>
       <w>icex</w>
+      <w>iconerror</w>
       <w>iconinformation</w>
       <w>icstartheight</w>
       <w>icstartwidth</w>
+      <w>inicjalizuje</w>
       <w>inputfile</w>
       <w>labelpass</w>
       <w>lefttoppanel</w>

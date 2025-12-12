@@ -1,7 +1,7 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: main.cpp
-// Data: 6.12.2025, 17:41
+// Data: 12.12.2025, 17:31
 
 //TODO:
 //Użycie makra __AESBASIC__
@@ -9,7 +9,7 @@
 #define STRICT
 #define NO_WIN32_LEAN_AND_MEAN
 #define UNICODE
-#define __AESBASIC__ // Makro przełączające między szyfrowaniem prostym a profesjonalnym.
+//#define __AESBASIC__ // Makro przełączające między szyfrowaniem prostym a profesjonalnym.
 										 // Gdy makro istnieje zostanie wykonane proste szyfrowanie.
 
 //#include <windows.h>
@@ -95,9 +95,13 @@ HWND GLOBAL_HWND_MAINWINDOW=nullptr,	//Główne okno
 		GLOBAL_PATH_HWND_LABEL_OUTPUT=nullptr,
 		// Przyciski radiowe typu szyfrowania
 		GLOBAL_HWND_RGROUP_AES128=nullptr,
-		GLOBAL_HWND_RGROUP_AES256=nullptr;
+		GLOBAL_HWND_RGROUP_AES256=nullptr,
+		// Przyciski radiowe szyfrowania prostego i profesjonalnego.
+		GLOBAL_HWND_RGROUP_AESBASIC = nullptr,
+		GLOBAL_HWND_RGROUP_AESPROFF = nullptr;
 		// Wymiary poszczególnych ramek
-RECT GLOBAL_RECT_BOTTPANEL,
+RECT GLOBAL_RECT_LEFTBOTTPANEL,
+		 GLOBAL_RECT_RIGHTBOTTPANEL,
 		 GLOBAL_RECT_LEFTTOPPANEL,
 		 GLOBAL_RECT_RIGHTTOPPANEL;
 static bool GLOBAL_TOGGLE_STATE_PASS=false, // Stan przycisku pokazywania stanu hasła
@@ -391,7 +395,9 @@ void __fastcall OnResize(HWND hwnd, UINT message, LPARAM lParam)
 		 RectEditOutput,	// Wymiary pola edycji pliku wyjściowego
 		 RectEditDir,	// Wymiary pola edycji katalogu
 		 RectRGroupAES128,	// Wymiary przycisku radiowego szyfrowania AES128
-		 RectRGroupAES256;	// Wymiary przycisku radiowego szyfrowania AES256
+		 RectRGroupAES256,	// Wymiary przycisku radiowego szyfrowania AES256
+		 RectRGroupAESBasic,// Wymiary przycisku radiowego szyfrowania AES256 uproszczonego
+		 RectRGroupAESPROFF;// Wymiary przycisku radiowego szyfrowania AES256 profesjonalnego
 	//Odczyt szerokości i wysokości okna, po zmianie jego rozmiarów
 	int iWidthMainWindow = LOWORD(lParam),	//Nowa szerokość okna
 		iHeightMainWindow = HIWORD(lParam), //Nowa wysokość okna
@@ -415,8 +421,10 @@ void __fastcall OnResize(HWND hwnd, UINT message, LPARAM lParam)
 		iWidthMainWindow / 4, (iHeightMainWindow - RecHToolBar.bottom) / 3 + 16};
 	GLOBAL_RECT_RIGHTTOPPANEL = RECT{GLOBAL_RECT_LEFTTOPPANEL.right + 4, GLOBAL_RECT_LEFTTOPPANEL.top,
 		iWidthMainWindow - 4, GLOBAL_RECT_LEFTTOPPANEL.bottom};
-	GLOBAL_RECT_BOTTPANEL = RECT{4, GLOBAL_RECT_LEFTTOPPANEL.bottom + 4,
-		iWidthMainWindow - 4, RectHMemoryTextInfo.top - 4};
+	GLOBAL_RECT_LEFTBOTTPANEL = RECT{4, GLOBAL_RECT_LEFTTOPPANEL.bottom + 4,
+		iWidthMainWindow / 2 - 4, RectHMemoryTextInfo.top - 4};
+	GLOBAL_RECT_RIGHTBOTTPANEL = RECT{GLOBAL_RECT_LEFTBOTTPANEL.right + 4, GLOBAL_RECT_LEFTBOTTPANEL.top,
+		iWidthMainWindow - 4, GLOBAL_RECT_LEFTBOTTPANEL.bottom};
 
 	// Edycja hasła
 	HFONT hFontToSize = reinterpret_cast<HFONT>(SendMessage(GLOBAL_HWND_HMEMORYTEXTINFOS, WM_GETFONT, 0, 0));
@@ -483,17 +491,31 @@ void __fastcall OnResize(HWND hwnd, UINT message, LPARAM lParam)
 
 	// Przycisk radiowy AES 128
 	SetWindowPos(GLOBAL_HWND_RGROUP_AES128, nullptr,
-		GLOBAL_RECT_BOTTPANEL.left + 8,
-		GLOBAL_RECT_BOTTPANEL.top + ((GLOBAL_RECT_BOTTPANEL.bottom - GLOBAL_RECT_BOTTPANEL.top) / 2) - ((RectEditPass.bottom - RectEditPass.top) / 2),
-		iWidthMainWindow / 2 - 32,
+		GLOBAL_RECT_LEFTBOTTPANEL.left + 8,
+		GLOBAL_RECT_LEFTBOTTPANEL.top + ((GLOBAL_RECT_LEFTBOTTPANEL.bottom - GLOBAL_RECT_LEFTBOTTPANEL.top) / 2) - ((RectEditPass.bottom - RectEditPass.top) / 2),
+		iWidthMainWindow / 4 - 32,
 		RectEditPass.bottom - RectEditPass.top, SWP_NOZORDER);
 	GsGetControlSize(GLOBAL_HWND_RGROUP_AES128, hwnd, RectRGroupAES128);
 
 	// Przycisk radiowy AES 256
 	SetWindowPos(GLOBAL_HWND_RGROUP_AES256, nullptr,
-		iWidthMainWindow / 2 + 16, RectRGroupAES128.top, iWidthMainWindow / 2 - 32,
+		iWidthMainWindow / 4 + 16, RectRGroupAES128.top, iWidthMainWindow / 4 - 32,
 		RectEditPass.bottom - RectEditPass.top, SWP_NOZORDER);
 	GsGetControlSize(GLOBAL_HWND_RGROUP_AES256, hwnd, RectRGroupAES256);
+
+	// Przycisk radiowy szyfrowania prostego.
+	SetWindowPos(GLOBAL_HWND_RGROUP_AESBASIC, nullptr,
+		GLOBAL_RECT_RIGHTBOTTPANEL.left + 8,
+		GLOBAL_RECT_RIGHTBOTTPANEL.top + ((GLOBAL_RECT_RIGHTBOTTPANEL.bottom - GLOBAL_RECT_RIGHTBOTTPANEL.top) / 2) - ((RectEditPass.bottom - RectEditPass.top) / 2),
+		iWidthMainWindow / 4 - 32,
+		RectEditPass.bottom - RectEditPass.top, SWP_NOZORDER);
+	GsGetControlSize(GLOBAL_HWND_RGROUP_AESBASIC, hwnd, RectRGroupAESBasic);
+
+	// Przycisk radiowy szyfrowania profesjonalnego.
+	SetWindowPos(GLOBAL_HWND_RGROUP_AESPROFF, nullptr,
+		iWidthMainWindow / 2 + (iWidthMainWindow / 4) + 16, RectRGroupAES128.top, iWidthMainWindow / 4 - 32,
+		RectEditPass.bottom - RectEditPass.top, SWP_NOZORDER);
+	GsGetControlSize(GLOBAL_HWND_RGROUP_AESPROFF, hwnd, RectRGroupAESPROFF);
 }
 //---------------------------------------------------------------------------
 void __fastcall OnCommand(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -710,7 +732,8 @@ void __fastcall OnPaint(HWND hwnd, UINT message, LPARAM lParam)
 
 	DrawEdge(hdc, &GLOBAL_RECT_LEFTTOPPANEL, EDGE_SUNKEN, BF_RECT | BF_FLAT);
 	DrawEdge(hdc, &GLOBAL_RECT_RIGHTTOPPANEL, EDGE_SUNKEN, BF_RECT | BF_FLAT);
-	DrawEdge(hdc, &GLOBAL_RECT_BOTTPANEL, EDGE_SUNKEN, BF_RECT | BF_FLAT);
+	DrawEdge(hdc, &GLOBAL_RECT_LEFTBOTTPANEL, EDGE_SUNKEN, BF_RECT | BF_FLAT);
+	DrawEdge(hdc, &GLOBAL_RECT_RIGHTBOTTPANEL, EDGE_SUNKEN, BF_RECT | BF_FLAT);
 
 	EndPaint(hwnd, &ps);
 }
@@ -906,6 +929,17 @@ void __fastcall CreateOtherControls(HWND hwnd)
 		0, 0, 0, 0, hwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
 	if(GLOBAL_HWND_RGROUP_AES256 == nullptr) return;
 	SendMessage(GLOBAL_HWND_RGROUP_AES256, BM_SETCHECK, BST_CHECKED, 0);	 // Zaznaczony AES 256
+
+	// Przyciski radiowe szyfrowania prostego i profesjonalnego.
+	GLOBAL_HWND_RGROUP_AESBASIC = CreateWindowEx(0, TEXT("BUTTON"), TEXT("Szyfrowanie uproszczone"),
+		WS_CHILD | WS_VISIBLE | WS_GROUP | BS_AUTORADIOBUTTON,// | WS_BORDER,
+		0, 0, 0, 0, hwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
+	if(GLOBAL_HWND_RGROUP_AESBASIC == nullptr) return;
+	GLOBAL_HWND_RGROUP_AESPROFF = CreateWindowEx(0, TEXT("BUTTON"), TEXT("Szyfrowanie profesjonalne"),
+		WS_CHILD | WS_VISIBLE | BS_AUTORADIOBUTTON,// | WS_BORDER,
+		0, 0, 0, 0, hwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
+	if(GLOBAL_HWND_RGROUP_AESPROFF == nullptr) return;
+	SendMessage(GLOBAL_HWND_RGROUP_AESBASIC, BM_SETCHECK, BST_CHECKED, 0);	 // Zaznaczony Szyfrowanie uproszczone
 }
 //---------------------------------------------------------------------------
 void __fastcall AddTrayIcon(HWND hwnd)
@@ -973,28 +1007,43 @@ void __fastcall ReadFileConfig()
 */
 {
 	constexpr int ciSizeTextTypeAES=48;
-	TCHAR lpszGetPassword[MAX_PATH], lpszTypeAES[ciSizeTextTypeAES], pszOut[MAX_PATH];
+	TCHAR lpszGetPassword[MAX_PATH], lpszSizeTypeAES[ciSizeTextTypeAES],
+		lpszTypeAES[ciSizeTextTypeAES], pszOut[MAX_PATH];
 
 	SecureZeroMemory(&lpszGetPassword, sizeof(lpszGetPassword));
-	SecureZeroMemory(&lpszTypeAES, sizeof(lpszTypeAES));
+	SecureZeroMemory(&lpszSizeTypeAES, sizeof(lpszSizeTypeAES));
 	GetPrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_KEY_PASSWORD, GLOBAL_TEXT_DEFAULT_PASSWORD, lpszGetPassword,
 		MAX_PATH, GLOBAL_PATHCONFIG);
-	GetPrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_KEY_TYPEAES, GLOBAL_DEFAULT_VALUE_KEY_TYPEAES, lpszTypeAES,
+	GetPrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_KEY_TYPEAES, GLOBAL_VALUE_SIZEAES_256, lpszSizeTypeAES,
+		MAX_PATH, GLOBAL_PATHCONFIG);
+	GetPrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_AESTYPE, GLOBAL_VALUE_TYPEAES_BASIC, lpszTypeAES,
 		MAX_PATH, GLOBAL_PATHCONFIG);
 	// Deszyfrowanie odczytanego hasła
 
 	// Wypisanie zdeszyfrowanego hasła do kontrolki
 	if(GsAESFunDecodeBase64(lpszGetPassword, pszOut, MAX_PATH)) SetWindowText(GLOBAL_HWND_EDITPASSWORD, pszOut);
 	else return;
-	if(StrRStrI(lpszTypeAES, nullptr, GLOBAL_VALUE_TYPEAES_128))
+	// Odczyt ustawionej długości klucza AES
+	if(StrRStrI(lpszSizeTypeAES, nullptr, GLOBAL_VALUE_SIZEAES_128))
 	{
 		SendMessage(GLOBAL_HWND_RGROUP_AES128, BM_SETCHECK, BST_CHECKED, 0);
 		SendMessage(GLOBAL_HWND_RGROUP_AES256, BM_SETCHECK, BST_UNCHECKED, 0);
 	}
-	else if(StrRStrI(lpszTypeAES, nullptr, GLOBAL_VALUE_TYPEAES_256))
+	else if(StrRStrI(lpszSizeTypeAES, nullptr, GLOBAL_VALUE_SIZEAES_256))
 	{
 		SendMessage(GLOBAL_HWND_RGROUP_AES256, BM_SETCHECK, BST_CHECKED, 0);
 		SendMessage(GLOBAL_HWND_RGROUP_AES128, BM_SETCHECK, BST_UNCHECKED, 0);
+	}
+	// Odczyt ustawionego typu algorytmu AES, uproszczonego lub profesjonalnego.
+	if(StrRStrI(lpszTypeAES, nullptr, GLOBAL_VALUE_TYPEAES_BASIC))
+	{
+		SendMessage(GLOBAL_HWND_RGROUP_AESBASIC, BM_SETCHECK, BST_CHECKED, 0);
+		SendMessage(GLOBAL_HWND_RGROUP_AESPROFF, BM_SETCHECK, BST_UNCHECKED, 0);
+	}
+	else if(StrRStrI(lpszTypeAES, nullptr, GLOBAL_VALUE_TYPEAES_PROFF))
+	{
+		SendMessage(GLOBAL_HWND_RGROUP_AESPROFF, BM_SETCHECK, BST_CHECKED, 0);
+		SendMessage(GLOBAL_HWND_RGROUP_AESBASIC, BM_SETCHECK, BST_UNCHECKED, 0);
 	}
 }
 //---------------------------------------------------------------------------
@@ -1007,9 +1056,10 @@ void __fastcall WriteFileConfig()
 */
 {
 	constexpr int ciSizeTextTypeAES=48;
-	TCHAR lpszSetPassword[MAX_PATH], lpszTypeAES[ciSizeTextTypeAES];
+	TCHAR lpszSetPassword[MAX_PATH], lpszSizeTypeAES[ciSizeTextTypeAES],
+		lpszTypeAES[ciSizeTextTypeAES];
 	SecureZeroMemory(&lpszSetPassword, sizeof(lpszSetPassword));
-	SecureZeroMemory(&lpszTypeAES, sizeof(lpszTypeAES));
+	SecureZeroMemory(&lpszSizeTypeAES, sizeof(lpszSizeTypeAES));
 	GetWindowText(GLOBAL_HWND_EDITPASSWORD, lpszSetPassword, MAX_PATH);
 	// Zakodowanie hasła Base64
 	if(TCHAR *pszCryptPass = GsAESFunEncodeBase64(lpszSetPassword))
@@ -1017,16 +1067,26 @@ void __fastcall WriteFileConfig()
 		WritePrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_KEY_PASSWORD, pszCryptPass, GLOBAL_PATHCONFIG);
 		HeapFree(GetProcessHeap(), 0, pszCryptPass); pszCryptPass = nullptr;
 	} else return;
-
+	// Typ AES-128, lub AES-256
 	if(SendMessage(GLOBAL_HWND_RGROUP_AES128, BM_GETCHECK, 0, 0) == BST_CHECKED)
 	{
-		StringCchCopy(lpszTypeAES, ciSizeTextTypeAES, TEXT("128"));
+		StringCchCopy(lpszSizeTypeAES, ciSizeTextTypeAES, GLOBAL_VALUE_SIZEAES_128);
 	}
 	else if(SendMessage(GLOBAL_HWND_RGROUP_AES256, BM_GETCHECK, 0, 0) == BST_CHECKED)
 	{
-		StringCchCopy(lpszTypeAES, ciSizeTextTypeAES, TEXT("256"));
+		StringCchCopy(lpszSizeTypeAES, ciSizeTextTypeAES, GLOBAL_VALUE_SIZEAES_256);
 	}
-	WritePrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_KEY_TYPEAES, lpszTypeAES, GLOBAL_PATHCONFIG);
+	WritePrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_KEY_TYPEAES, lpszSizeTypeAES, GLOBAL_PATHCONFIG);
+	// Typ AES, uproszczony, lub profesionalny.
+	if(SendMessage(GLOBAL_HWND_RGROUP_AESBASIC, BM_GETCHECK, 0, 0) == BST_CHECKED)
+	{
+		StringCchCopy(lpszTypeAES, ciSizeTextTypeAES, GLOBAL_VALUE_TYPEAES_BASIC);
+	}
+	else if(SendMessage(GLOBAL_HWND_RGROUP_AESPROFF, BM_GETCHECK, 0, 0) == BST_CHECKED)
+	{
+		StringCchCopy(lpszTypeAES, ciSizeTextTypeAES, GLOBAL_VALUE_TYPEAES_PROFF);
+	}
+	WritePrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_AESTYPE, lpszTypeAES, GLOBAL_PATHCONFIG);
 }
 //---------------------------------------------------------------------------
 AESResult __fastcall CreateHash(const enSizeSHABit eSizeSHABit)
@@ -1101,9 +1161,12 @@ void __fastcall ProcessFilesNames()
 		//if(!GsAESBasic::GsAESBasicDecryptFile(HashResult, szInputFilePath, szOutputFilePath, eSizeKey))
 		if(!GsAESDecryptFile(HashResult, szInputFilePath, szOutputFilePath, eSizeKey))
 		{
-			MessageBox(nullptr, TEXT("Błąd metody GsAESBasic::GsAESDecryptFile()!"), TEXT("Błąd"), MB_ICONERROR);
+			MessageBox(nullptr, TEXT("Błąd metody GsAESDecryptFile()!"), TEXT("Błąd"), MB_ICONERROR);
 			StringCchPrintf(szTextInfos, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Błąd odszyfrowywania pliku: \"%s\""),
 				st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, szInputFilePath);
+			AppendMemoInfos(szTextInfos);
+			CleanupRunProc();
+			return;
 		}
 	}
 	else
@@ -1113,9 +1176,12 @@ void __fastcall ProcessFilesNames()
 		//if(!GsAESBasic::GsAESBasicCryptFile(HashResult, szInputFilePath, szOutputFilePath, eSizeKey))
 		if(!GsAESCryptFile(HashResult, szInputFilePath, szOutputFilePath, eSizeKey))
 		{
-			MessageBox(nullptr, TEXT("Błąd metody GsAESBasic::GsAESCryptFile()!"), TEXT("Błąd"), MB_ICONERROR);
+			MessageBox(nullptr, TEXT("Błąd metody GsAESCryptFile()!"), TEXT("Błąd"), MB_ICONERROR);
 			StringCchPrintf(szTextInfos, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Błąd szyfrowania pliku: \"%s\""),
 				st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, szInputFilePath);
+			AppendMemoInfos(szTextInfos);
+			CleanupRunProc();
+			return;
 		}
 	}
 	if(!DeleteFile(szInputFilePath))
