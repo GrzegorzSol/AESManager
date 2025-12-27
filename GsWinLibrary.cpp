@@ -1,7 +1,7 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: GsWinLibrary.cpp
-// Data: 12.12.2025, 17:31
+// Data: 26.12.2025, 07:26
 
 #define STRICT
 #define NO_WIN32_LEAN_AND_MEAN
@@ -10,10 +10,11 @@
 #include "GsWinLibrary.h"
 #include <commctrl.h>
 #include <shlobj.h>
+#include <strsafe.h>   // Safe String Functions
 
-int CALLBACK GsBrowseCallBackProc(HWND hwnd, UINT uMsg, LPARAM lParam, LPARAM lpData);
+int CALLBACK GsBrowseCallBackProc(const HWND hwnd, const UINT uMsg, LPARAM lParam, const LPARAM lpData);
 
-__fastcall void	 GsSetStateToolBarButton(HWND hToolBar, int iCommand, bool bStateEnabled)
+__fastcall void	 GsSetStateToolBarButton(const HWND hToolBar, const int iCommand, const bool bStateEnabled)
 /**
 	OPIS METOD(FUNKCJI): Zmiana stany przycisku na toolbarze zależnie od argumentu bStateEnabled, domyślnie true.
 	OPIS ARGUMENTÓW:
@@ -63,7 +64,7 @@ HFONT GsGetSystemFont()
 	return hFont;
 }
 //---------------------------------------------------------------------------
-bool GsLoadFile(TCHAR *lpszOutFile, size_t sizeOutFile)
+bool GsLoadFile(TCHAR *lpszOutFile, const size_t sizeOutFile)
 /**
 	OPIS METOD(FUNKCJI): Wybiera dialog do wyboru pliku
 	OPIS ARGUMENTÓW:
@@ -131,7 +132,7 @@ bool GsSelectProjectDirectory(TCHAR *lpszSelectDir, const TCHAR *lpszDefaultDir)
 	return bRet;
 }
 //---------------------------------------------------------------------------
-int CALLBACK GsBrowseCallBackProc(HWND hwnd, UINT uMsg, LPARAM lParam, LPARAM lpData)
+int CALLBACK GsBrowseCallBackProc(const HWND hwnd, const UINT uMsg, LPARAM lParam, const LPARAM lpData)
 /**
 	OPIS METOD(FUNKCJI):
 	OPIS ARGUMENTÓW:
@@ -146,7 +147,7 @@ int CALLBACK GsBrowseCallBackProc(HWND hwnd, UINT uMsg, LPARAM lParam, LPARAM lp
 	return 0;
 }
 //---------------------------------------------------------------------------
-bool __fastcall GsGetControlSize(HWND hControl, HWND hParentControl, RECT &rRectControl)
+bool __fastcall GsGetControlSize(const HWND hControl, const HWND hParentControl, RECT &rRectControl)
 /**
 	OPIS METOD(FUNKCJI): Funkcja zwraca wymiary wzgledem kontrolki nadrzędnej
 	OPIS ARGUMENTÓW:
@@ -170,7 +171,7 @@ bool __fastcall GsGetControlSize(HWND hControl, HWND hParentControl, RECT &rRect
 	return true;
 }
 //---------------------------------------------------------------------------
-void __fastcall SetFontForAll(HWND hParent, HFONT hFont)
+void __fastcall GsSetFontForAll(const HWND hParent, HFONT hFont)
 /**
 	OPIS METOD(FUNKCJI): Funkcja przyporządkowywuje czcionki wszystkim kontrolkom
 	OPIS ARGUMENTÓW:
@@ -184,5 +185,117 @@ void __fastcall SetFontForAll(HWND hParent, HFONT hFont)
 		SendMessage(hCtrl, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), TRUE);
 		hCtrl = GetWindow(hCtrl, GW_HWNDNEXT);
 	}
+}
+//---------------------------------------------------------------------------
+bool __fastcall GsIsDirectory(LPCTSTR lpszPath)
+/**
+	OPIS METOD(FUNKCJI): Funkcja sprawdzająca, czy ścieżka dostepu jest katalogiem
+	OPIS ARGUMENTÓW:
+	OPIS ZMIENNYCH:
+	OPIS WYNIKU METODY(FUNKCJI):
+*/
+{
+	const DWORD attrs = GetFileAttributes(lpszPath);
+	if(attrs == INVALID_FILE_ATTRIBUTES) return false;
+	return (attrs & FILE_ATTRIBUTE_DIRECTORY);
+}
+//---------------------------------------------------------------------------
+bool __fastcall GsReadDataFromFile(LPCWSTR lpszFilePath, GsStoreData *pOut)
+/**
+	OPIS METOD(FUNKCJI): Wczytanie całego pliku do bufora (HeapAlloc)
+	OPIS ARGUMENTÓW:
+	OPIS ZMIENNYCH:
+	OPIS WYNIKU METODY(FUNKCJI): Zwraca true w przypadku sukcesu, false w przypadku błędu.
+*/
+{
+	BOOL bResult=false;
+	HANDLE hFile=INVALID_HANDLE_VALUE;
+	LARGE_INTEGER liSizeInput;
+	//LARGE_INTEGER liSize;
+	BYTE* pBuf=nullptr;
+
+	if (!lpszFilePath || !pOut) return false;
+
+	auto CleanupRead = [&]()
+	/**
+		OPIS METOD(FUNKCJI): Funkcja zwalniająca zarezerwowane zasoby podczas błędu
+												 lub zakończenia nadrzędnej funkcji typu lambda
+	*/
+	{
+		if(hFile != INVALID_HANDLE_VALUE) {CloseHandle(hFile); hFile = INVALID_HANDLE_VALUE;}
+		if(pBuf) {HeapFree(GetProcessHeap(), 0, pBuf); pBuf = nullptr;}
+	};
+
+	hFile = CreateFile(lpszFilePath, GENERIC_READ, FILE_SHARE_READ,
+		nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+	if(hFile == INVALID_HANDLE_VALUE)
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji CreateFile!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupRead(); return false;
+	}
+
+	if(!GetFileSizeEx(hFile, &liSizeInput)) {CleanupRead(); return false;}
+
+	// Ograniczenie: plik musi zmieścić się w DWORD.
+	if(liSizeInput.QuadPart <= 0 || liSizeInput.QuadPart > 0xFFFFFFFFULL) {{CleanupRead(); return false;}}
+
+	const DWORD cbSize = liSizeInput.QuadPart;
+	pBuf = static_cast<BYTE*>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, cbSize));
+	if(!pBuf) {CleanupRead(); return false;}
+
+	DWORD cbRead = 0;
+	if(!ReadFile(hFile, pBuf, cbSize, &cbRead, nullptr) || cbRead != cbSize)
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji ReadFile!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupRead(); return false;
+	}
+
+	pOut->pBData = pBuf;
+	pOut->DDataLen = cbSize;
+	bResult = true;
+
+	if(hFile != INVALID_HANDLE_VALUE) {CloseHandle(hFile); hFile = INVALID_HANDLE_VALUE;}
+	return bResult;
+}
+//---------------------------------------------------------------------------
+bool __fastcall GsWriteDataToFile(LPCWSTR lpszFilePath, const BYTE* pData, DWORD cbData)
+/**
+	OPIS METOD(FUNKCJI): Zapis bufora do pliku (nadpisanie / utworzenie)
+	OPIS ARGUMENTÓW:
+	OPIS ZMIENNYCH:
+	OPIS WYNIKU METODY(FUNKCJI): Zwraca true w przypadku sukcesu, false w przypadku błędu.
+	UWAGI:
+*/
+	{
+		bool bResult=false;
+		HANDLE hFile=INVALID_HANDLE_VALUE;
+
+		if (!lpszFilePath || !pData || cbData==0) return false;
+
+		auto CleanupWrite = [&]()
+		/**
+			OPIS METOD(FUNKCJI): Funkcja zwalniająca zarezerwowane zasoby podczas błędu
+													 lub zakończenia nadrzędnej funkcji typu lambda
+		*/
+		{if(hFile != INVALID_HANDLE_VALUE) {CloseHandle(hFile); hFile = INVALID_HANDLE_VALUE;}};
+
+		hFile = CreateFile(lpszFilePath, GENERIC_WRITE, 0, nullptr,
+			CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+		if(hFile == INVALID_HANDLE_VALUE)
+		{
+			MessageBox(nullptr, TEXT("Błąd funkcji CreateFile!"), TEXT("Błąd"), MB_ICONERROR);
+			CleanupWrite(); return false;
+		}
+
+		DWORD cbWritten = 0;
+		if(!WriteFile(hFile, pData, cbData, &cbWritten, nullptr) && cbWritten == cbData)
+		{
+			MessageBox(nullptr, TEXT("Błąd funkcji WriteFile!"), TEXT("Błąd"), MB_ICONERROR);
+			CleanupWrite(); return false;
+		}
+
+		CleanupWrite();
+		bResult = true;
+		return bResult;
 }
 //---------------------------------------------------------------------------

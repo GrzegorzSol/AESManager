@@ -1,66 +1,64 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: main.cpp
-// Data: 12.12.2025, 17:31
+// Data: 26.12.2025, 07:26
 
 //TODO:
-//Użycie makra __AESBASIC__
 
+#define _UNICODE
+#define UNICODE
 #define STRICT
 #define NO_WIN32_LEAN_AND_MEAN
-#define UNICODE
-//#define __AESBASIC__ // Makro przełączające między szyfrowaniem prostym a profesjonalnym.
-										 // Gdy makro istnieje zostanie wykonane proste szyfrowanie.
 
-//#include <windows.h>
+#include <tchar.h>
 #include <shlwapi.h>
 #include <commctrl.h>
 #include <pathcch.h>
-//#include <shlobj.h>
-//#include <commdlg.h>
 #include "AESManager_resource.h"
 #include "MyVersion.h"
-#include <Strsafe.h>
+#include <strsafe.h>
 #include <gdiplus.h>
 #include "GsAESCrypt.h"
-#include "GsWinLibrary.h"
 #include "AESManager.h"
 #include "GsAboutLibrary.h"
 
 #define WM_TRAYICON (WM_USER + 1)
 
-void __fastcall OnCreate(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);	//Procedura wywoływana podczas tworzenia okna
-void __fastcall OnDestroy(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);//Procedura wywoływana podczas niszczenia okna
-void __fastcall OnResize(HWND hwnd, UINT message, LPARAM lParam);//Procedura wywoływana podczas zmiany wymiarów okna
-void __fastcall OnCommand(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);//Procedura wywoływana podczas kliknięcia kontrolkę
-void __fastcall OnNotify(HWND hwnd, UINT message, LPARAM lParam);//Procedura wywoływana podczas komunikatu WM_NOTIFY
-void __fastcall OnPaint(HWND hwnd, UINT message, LPARAM lParam); // Procedura malowania po oknie
-void __fastcall OnDrawItem(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam); // Procedura właśnego rysowania
+void __fastcall OnCreate(const HWND cHwnd, UINT message, WPARAM wParam, LPARAM lParam);	//Procedura wywoływana podczas tworzenia okna
+void __fastcall OnDestroy(const HWND cHwnd, UINT message, WPARAM wParam, LPARAM lParam);//Procedura wywoływana podczas niszczenia okna
+void __fastcall OnResize(const HWND cHwnd, UINT message, LPARAM lParam);//Procedura wywoływana podczas zmiany wymiarów okna
+void __fastcall OnCommand(const HWND cHwnd, UINT message, const WPARAM cWParam, const LPARAM cLParam);//Procedura wywoływana podczas kliknięcia kontrolkę
+void __fastcall OnNotify(const HWND cHwnd, UINT message, const LPARAM cLParam);//Procedura wywoływana podczas komunikatu WM_NOTIFY
+void __fastcall OnPaint(const HWND cHwnd, UINT message, LPARAM lParam); // Procedura malowania po oknie
+void __fastcall OnDrawItem(const HWND cHwnd, UINT message, WPARAM wParam, LPARAM lParam); // Procedura właśnego rysowania
 
-void __fastcall CreateToolBar(HWND hwnd);	// Tworzenie Toolbara
-void __fastcall CreateStatusBar(HWND hwnd);	// Tworzenie Statusbara
-void __fastcall CreateOtherControls(HWND hwnd); // Tworzenie pozostałych kontrolek
-void __fastcall AddTrayIcon(HWND hwnd);	// Tworzenie ikony traja oraz powiadomienia
-void __fastcall ShowTrayMenu(HWND hwnd);	// Tworzenie i otwieranie popupmenu traja
+void __fastcall CreateToolBar(const HWND cHwnd);	// Tworzenie Toolbara
+void __fastcall CreateStatusBar(const HWND cHwnd);	// Tworzenie Statusbara
+void __fastcall CreateOtherControls(const HWND cHwnd); // Tworzenie pozostałych kontrolek
+void __fastcall AddTrayIcon(const HWND cHwnd);	// Tworzenie ikony traja oraz powiadomienia
+void __fastcall ShowTrayMenu(const HWND cHwnd);	// Tworzenie i otwieranie popupmenu traja
 void __fastcall ReadFileConfig(); // Odczyt konfiguracji
 void __fastcall WriteFileConfig(); // Zapis konfiguracji
-AESResult __fastcall CreateHash(const enSizeSHABit eSizeSHABit); // Tworzenie hasha z hasła
+GsStoreData __fastcall CreateHash(const enSizeSHABit eSizeSHABit); // Tworzenie hasha z hasła
 void __fastcall ProcessFilesNames(); // Wykonywanie mieszania hasła, a następnie szyfrowania lub deszyfrowania
-enTypeProcess __fastcall ProcessExtendFileName(LPCWSTR lpszFileName, bool bIsDirProcess=false);
-void __fastcall ProcessDirectoryName(LPCWSTR lpszDirectoryName); // Szyfrowanie lub deszyfrowanie wybranego katalogu
+enTypeProcess __fastcall ProcessExtendFileName(LPCWSTR lpcszFileName, const bool cbIsDirProcess=false);
+void __fastcall ProcessDirectoryName(LPCWSTR lpcszDirectoryName); // Szyfrowanie lub deszyfrowanie wybranego katalogu
 bool __fastcall IsExistParamsEdit(); // Funkcja sprawdza, czy istnieje hasło, ścieżka wejściowa i wyjściowa.
 bool __fastcall SaveHistoryFile(); // Funkcja zapisująca plik historii.
 bool __fastcall LoadHistoryFile(); // Funkcja, która wczytuje plik histori na początku.
-void __fastcall AppendMemoInfos(LPCWSTR lpszTextAdd); // Dodanie nowej lini do historii.
-void __fastcall DrawButtonViewPass(HWND hwnd, const LPDRAWITEMSTRUCT dis); // Rysowanie kontrolek
-LRESULT CALLBACK ButtonViewPassProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam,
-	UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
+void __fastcall AppendMemoInfos(LPCWSTR lpcszTextAdd); // Dodanie nowej lini do historii.
+void __fastcall DrawButtonViewPass(const HWND cHwnd, const LPDRAWITEMSTRUCT pLdis); // Rysowanie kontrolek
+LRESULT CALLBACK ButtonViewPassProc(const HWND cHwnd, const UINT cUIMsg, const WPARAM cwParam, const LPARAM cLParam,
+	const UINT_PTR cUIpSubclass, DWORD_PTR DRefData);
+void __fastcall ProcessCommandLine();
+void __fastcall SelectViewFile(LPCWSTR lpcszSelectFile); // Wpisanie wybranego pliku roboczego
+void __fastcall SelectViewDir(LPCWSTR lpcszSelectDir); // Wpisanie wybranego katalogu roboczego
 
 NOTIFYICONDATA GLOBAL_NID;
 ULONG_PTR gdiplusToken; // globalny token GDI+.
 
 static TCHAR *GLOBAL_STRVERSION=nullptr,
-				GLOBAL_PROJECTDIRECTORY[MAX_PATH],
+				GLOBAL_GETPROCESS_DIRECTORY[MAX_PATH], // Ścieżka dostępu do katalogu roboczego
 				//---
 				GLOBAL_GETEXEDIR[MAX_PATH],	// Ścieżka dostępu do katalogu aplikacji
 				GLOBAL_PATHCONFIG[MAX_PATH],
@@ -87,7 +85,7 @@ HWND GLOBAL_HWND_MAINWINDOW=nullptr,	//Główne okno
 		GLOBAL_HWND_EDITPASSWORD=nullptr,	// Kontrolka do wprowadzania hasła
 		GLOBAL_HWND_BUTTON_VIEPASS=nullptr,	// Przycisk pokazywania hasła
 		// Kontrolki ścieżek dostępu do pliku wejściowego i wyjściowego razem z etykietami.
-		GLOBAL_PATH_HWND_EDITDIR=nullptr,
+		GLOBAL_PATH_HWND_EDITDIR=nullptr, // Kontrolka katalogu roboczego
 		GLOBAL_PATH_HWND_LABEL_DIR=nullptr,
 		GLOBAL_PATH_HWND_EDITINPUT=nullptr,
 		GLOBAL_PATH_HWND_LABEL_INPUT=nullptr,
@@ -105,13 +103,18 @@ RECT GLOBAL_RECT_LEFTBOTTPANEL,
 		 GLOBAL_RECT_LEFTTOPPANEL,
 		 GLOBAL_RECT_RIGHTTOPPANEL;
 static bool GLOBAL_TOGGLE_STATE_PASS=false, // Stan przycisku pokazywania stanu hasła
+			GLOBAL_TYPE_AES_PROFF=true,	// Przełącznik trybu szyfrowania AES. True-wersja pełna, profesjonalna.
+																	// False, wersja uproszczona.
 			GLOBAL_HOVER=false; // stan hover
 
-/*
-	MessageBox(nullptr, TEXT("Tekst sprawdzający"), TEXT("Informacja"), MB_ICONINFORMATION);
-*/
+	#ifdef __MYDEBUG__
+		TCHAR GlmainszInfoDebug[MAX_PATH];
+		//StringCchPrintf(GlmainszInfoDebug, MAX_PATH, TEXT("Data: %d"), Data);
+		//MessageBox(nullptr, GlmainszInfoDebug, TEXT("Informacja"), MB_ICONINFORMATION);
+	#endif
 
-LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+
+LRESULT CALLBACK WndProc(const HWND cHwnd, const UINT cUIMessage, WPARAM wParam, const LPARAM cLParam)
 /**
 	OPIS METOD(FUNKCJI):
 	OPIS ARGUMENTÓW:
@@ -119,15 +122,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	OPIS WYNIKU METODY(FUNKCJI):
 */
 {
-	switch(message)
+	switch(cUIMessage)
 	{
 		case WM_CREATE:
-			OnCreate(hwnd, message, wParam, lParam);	//Procedura wywoływana podczas tworzenia okna
+			OnCreate(cHwnd, cUIMessage, wParam, cLParam);	//Procedura wywoływana podczas tworzenia okna
 			break;
 		//---
 		case WM_CTLCOLORSTATIC:
 		{
-			HWND hCtl = reinterpret_cast<HWND>(lParam);
+			HWND hCtl = reinterpret_cast<HWND>(cLParam);
 			HDC hdcStatic = reinterpret_cast<HDC>(wParam);
 
 			if(hCtl == GLOBAL_HWND_HMEMORYTEXTINFOS)
@@ -147,22 +150,22 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		//---
 		case WM_TRAYICON:
-			if(lParam == WM_RBUTTONDOWN)
+			if(cLParam == WM_RBUTTONDOWN)
 			{
-				ShowTrayMenu(hwnd);
+				ShowTrayMenu(cHwnd);
 			}
 			break;
 		//---
 		case WM_SIZE:
-			OnResize(hwnd, message, lParam);	//Procedura wywoływana podczas tworzenia okna
+			OnResize(cHwnd, cUIMessage, cLParam);	//Procedura wywoływana podczas tworzenia okna
 			break;
 		//---
 		case WM_COMMAND:
-			OnCommand(hwnd, message, wParam, lParam);
+			OnCommand(cHwnd, cUIMessage, wParam, cLParam);
 			break;
 		//---
 		case WM_NOTIFY:
-			OnNotify(hwnd, message, lParam);
+			OnNotify(cHwnd, cUIMessage, cLParam);
 			break;
 		//---
 		case WM_CLOSE:
@@ -172,7 +175,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			SecureZeroMemory(&tdc, sizeof(tdc));
 
 			tdc.cbSize = sizeof(TASKDIALOGCONFIG);
-			tdc.hwndParent = hwnd;
+			tdc.hwndParent = cHwnd;
 			tdc.hInstance = GLOBAL_HINSTANCE;
 			tdc.dwFlags = TDF_ALLOW_DIALOG_CANCELLATION | TDF_USE_HICON_MAIN;
 			tdc.dwCommonButtons = TDCBF_OK_BUTTON | TDCBF_CANCEL_BUTTON;
@@ -186,32 +189,32 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			if(nButton == IDOK)
 			{
 				Gdiplus::GdiplusShutdown(gdiplusToken);
-				DestroyWindow(hwnd);
+				DestroyWindow(cHwnd);
 			}
 		}
 		break;
 		//---
 		case WM_PAINT:
-			OnPaint(hwnd, message, lParam);
+			OnPaint(cHwnd, cUIMessage, cLParam);
 			break;
 		//---
 		case WM_DRAWITEM:
-			OnDrawItem(hwnd, message, wParam, lParam);
+			OnDrawItem(cHwnd, cUIMessage, wParam, cLParam);
 			return true;
 		//---
 		case WM_DESTROY:
-			OnDestroy(hwnd, message, wParam, lParam);	//Procedura wywoływana podczas niszczenia okna
+			OnDestroy(cHwnd, cUIMessage, wParam, cLParam);	//Procedura wywoływana podczas niszczenia okna
 			PostQuitMessage(0);
 			break;
 		//---
 		default:
-			return DefWindowProc(hwnd, message, wParam, lParam);
+			return DefWindowProc(cHwnd, cUIMessage, wParam, cLParam);
 	}
 	return 0;
 }
 //---------------------------------------------------------------------------
 int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance,
-				LPSTR lpCmdLine, int nCmdShow)
+				LPSTR lpCmdLine, int iCmdShow)
 /**
 	OPIS METOD(FUNKCJI):
 	OPIS ARGUMENTÓW:
@@ -222,7 +225,8 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance,
 	WNDCLASSEX wincl;
 	//Uchwyt do okna ekranu
 	RECT rectScreen;
-	TCHAR szpTextInfo[255];
+	TCHAR szTextInfo[MAX_PATH];
+	HRESULT hr;
 
 	// Odczyt ścieżki dostępu do katalogu aplikacji
 	SecureZeroMemory(&GLOBAL_GETEXEDIR, sizeof(GLOBAL_GETEXEDIR));
@@ -233,8 +237,9 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance,
 	//MessageBox(nullptr, GLOBAL_PATHCONFIG, TEXT("Katalog aplikacji"), MB_ICONINFORMATION);
 
 	GLOBAL_STRVERSION = MyVersion::GetInfo(); // Informacja o wersji
-	SecureZeroMemory(&szpTextInfo, sizeof(szpTextInfo));
-	StringCchPrintf(szpTextInfo, 100, TEXT("AESManager v%s (c)Grzegorz Sołtysik"), GLOBAL_STRVERSION);
+	SecureZeroMemory(&szTextInfo, sizeof(szTextInfo));
+	StringCchPrintf(szTextInfo, sizeof(szTextInfo), TEXT("AESManager v%s © Grzegorz Sołtysik [Oświęcim Date: %S Time: %S]"),
+		GLOBAL_STRVERSION, __DATE__, __TIME__);
 	SecureZeroMemory(&GLOBAL_NID, sizeof(GLOBAL_NID));
 
 	//Rejestracja nowych klas GUI
@@ -276,7 +281,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance,
 	GLOBAL_HWND_MAINWINDOW = CreateWindowEx(
 		0,
 		GLOBAL_CLASS_NAME,
-		szpTextInfo,//TITLE_WINDOW,
+		szTextInfo,//TITLE_WINDOW,
 		//WS_OVERLAPPEDWINDOW,
 		WS_VISIBLE | WS_CAPTION | WS_SYSMENU,
 		iWidthScr / 2 - (GLOBAL_ICSTARTWIDTH / 2),			 //Wyśrodkowanie w poziomie okna
@@ -290,8 +295,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance,
 	);
 
 	if(GLOBAL_HWND_MAINWINDOW == nullptr) return 0;
-
-	ShowWindow(GLOBAL_HWND_MAINWINDOW, nCmdShow);
+	ShowWindow(GLOBAL_HWND_MAINWINDOW, iCmdShow);
 
 	MSG msg;
 	ZeroMemory(&msg, sizeof(MSG));
@@ -304,7 +308,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance,
 	return static_cast<int>(msg.wParam);
 }
 //---------------------------------------------------------------------------
-void __fastcall OnCreate(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+void __fastcall OnCreate(const HWND cHwnd, UINT message, WPARAM wParam, LPARAM lParam)
 /**
 	OPIS METOD (FUNKCJI): Procedura wywoływana podczas tworzenia okna
 	OPIS ARGUMENTÓW:
@@ -331,29 +335,20 @@ void __fastcall OnCreate(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	GLOBAL_HICON_VIEWPASS = static_cast<HICON>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCEW(VIEW_PASS), IMAGE_ICON, 32, 32,LR_DEFAULTCOLOR));
 	if(!GLOBAL_HICON_VIEWPASS) return;
 	// Dodawanie tray icon
-	AddTrayIcon(hwnd);
+	AddTrayIcon(cHwnd);
 	//Stworzenie globalnej ImageListy
 	GLOBAL_HIMGLIST32 = ImageList_Create(32, 32, ILC_COLOR32, 0, 0);
 	if(!GLOBAL_HIMGLIST32) return;
-	CreateToolBar(hwnd);				// Tworzenie ImageList oraz ToolBar
-	CreateStatusBar(hwnd);			// Tworzenie status bara
-	CreateOtherControls(hwnd);	// Tworzenie pozostałych kontrolek
+	CreateToolBar(cHwnd);				// Tworzenie ImageList oraz ToolBar
+	CreateStatusBar(cHwnd);			// Tworzenie status bara
+	CreateOtherControls(cHwnd);	// Tworzenie pozostałych kontrolek
 	ReadFileConfig();
 	LoadHistoryFile();
-	//---
-	// GLOBAL_PGSAES = new GsAESBasic();
-	// if(!GLOBAL_PGSAES)
-	// // Usunięcie klasy GsAES
-	// {
-	// 	MessageBox(nullptr, TEXT("Błąd inicjalizacji objektu, klasy GsAES"), TEXT("Error"), MB_ICONINFORMATION);
-	// 	OnDestroy(nullptr, 0, 0, 0);
-	// 	PostQuitMessage(0);
-	// }
-	SetFontForAll(hwnd, GLOBAL_HFONT);
-	//printf("OnCreate\n");
+	GsSetFontForAll(cHwnd, GLOBAL_HFONT);
+	ProcessCommandLine(); // Sprawdzenie, czy aplikacja została wywołana z lini komend w konsoli.
 }
 //---------------------------------------------------------------------------
-void __fastcall OnDestroy(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+void __fastcall OnDestroy(const HWND cHwnd, UINT message, WPARAM wParam, LPARAM lParam)
 /**
 	OPIS METOD(FUNKCJI): Procedura wywoływana podczas niszczenia okna
 	OPIS ARGUMENTÓW:
@@ -371,10 +366,9 @@ void __fastcall OnDestroy(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	GLOBAL_HFONT = nullptr;
 	//WriteFileConfig();
 	Shell_NotifyIcon(NIM_DELETE, &GLOBAL_NID);
-	// if(GLOBAL_PGSAES) {delete GLOBAL_PGSAES; GLOBAL_PGSAES = nullptr;}
 }
 //---------------------------------------------------------------------------
-void __fastcall OnResize(HWND hwnd, UINT message, LPARAM lParam)
+void __fastcall OnResize(const HWND cHwnd, UINT message, LPARAM lParam)
 /**
 	OPIS METOD (FUNKCJI): Procedura wywoływana podczas zmiany wymiarów okna
 	OPIS ARGUMENTÓW:
@@ -405,17 +399,17 @@ void __fastcall OnResize(HWND hwnd, UINT message, LPARAM lParam)
 
 	//Zmiana wysokości kontrolki StatusBaru
 	SetWindowPos(GLOBAL_HWND_HSTATUSBAR, nullptr, 0, 0, iWidthMainWindow, 0, SWP_NOZORDER);
-	GsGetControlSize(GLOBAL_HWND_HSTATUSBAR, hwnd, RectHStatusBar);	//Wymiary StatusBar
+	GsGetControlSize(GLOBAL_HWND_HSTATUSBAR, cHwnd, RectHStatusBar);	//Wymiary StatusBar
 
 	//Zmiana wysokości kontrolki ToolBaru
 	SetWindowPos(GLOBAL_HWND_HTOOLBAR, nullptr, 4, 0, iWidthMainWindow - 8, 0, SWP_NOZORDER);
-	GsGetControlSize(GLOBAL_HWND_HTOOLBAR, hwnd, RecHToolBar);	//Wymiary ToolBaru
+	GsGetControlSize(GLOBAL_HWND_HTOOLBAR, cHwnd, RecHToolBar);	//Wymiary ToolBaru
 	//Zmiana wysokości kontrolki MemoEdit
 	int TOP_HMEMORYTEXTINFO = (iHeightMainWindow - RecHToolBar.bottom) / 2;
 	iHeightControl = RectHStatusBar.bottom - RectHStatusBar.top;
 	SetWindowPos(GLOBAL_HWND_HMEMORYTEXTINFOS, nullptr, 4, TOP_HMEMORYTEXTINFO,
 		iWidthMainWindow - 8, iHeightMainWindow - TOP_HMEMORYTEXTINFO - iHeightControl, SWP_NOZORDER);
-	GsGetControlSize(GLOBAL_HWND_HMEMORYTEXTINFOS, hwnd, RectHMemoryTextInfo);	//Wymiary Memo
+	GsGetControlSize(GLOBAL_HWND_HMEMORYTEXTINFOS, cHwnd, RectHMemoryTextInfo);	//Wymiary Memo
 
 	GLOBAL_RECT_LEFTTOPPANEL = RECT{4, RecHToolBar.bottom + 4,
 		iWidthMainWindow / 4, (iHeightMainWindow - RecHToolBar.bottom) / 3 + 16};
@@ -439,55 +433,55 @@ void __fastcall OnResize(HWND hwnd, UINT message, LPARAM lParam)
 	SetWindowPos(GLOBAL_HWND_LABELPASS, nullptr, GLOBAL_RECT_LEFTTOPPANEL.left + 8, GLOBAL_RECT_LEFTTOPPANEL.top + 4,
 		GLOBAL_RECT_LEFTTOPPANEL.right - GLOBAL_RECT_LEFTTOPPANEL.left - 16,
 		tm.tmHeight + tm.tmExternalLeading + 6, SWP_NOZORDER);
-	GsGetControlSize(GLOBAL_HWND_LABELPASS, hwnd, RectHLabel);
+	GsGetControlSize(GLOBAL_HWND_LABELPASS, cHwnd, RectHLabel);
 
 	SetWindowPos(GLOBAL_HWND_EDITPASSWORD, nullptr, RectHLabel.left, RectHLabel.bottom,
 		RectHLabel.right - RectHLabel.left, tm.tmHeight + tm.tmExternalLeading + 6, SWP_NOZORDER);
-	GsGetControlSize(GLOBAL_HWND_EDITPASSWORD, hwnd, RectEditPass);
+	GsGetControlSize(GLOBAL_HWND_EDITPASSWORD, cHwnd, RectEditPass);
 
 	// Pokazywanie hasła
 	SetWindowPos(GLOBAL_HWND_BUTTON_VIEPASS, nullptr,
 			((RectEditPass.right - RectEditPass.left) / 2) - (GLOBAL_WIDTH_BUTT_VIEW_PASS / 2),
 			RectEditPass.bottom + 6,
 			GLOBAL_WIDTH_BUTT_VIEW_PASS, GLOBAL_HEIGHT_BUTT_VIEW_PASS, SWP_NOZORDER);
-	GsGetControlSize(GLOBAL_HWND_BUTTON_VIEPASS, hwnd, RectButtonPass);
+	GsGetControlSize(GLOBAL_HWND_BUTTON_VIEPASS, cHwnd, RectButtonPass);
 
 	// Etykieta pliku wejściowego
 	SetWindowPos(GLOBAL_PATH_HWND_LABEL_INPUT, nullptr,
 		GLOBAL_RECT_RIGHTTOPPANEL.left + 32, GLOBAL_RECT_RIGHTTOPPANEL.top + 10, 100, RectHLabel.bottom - RectHLabel.top,
 	SWP_NOZORDER);
-	GsGetControlSize(GLOBAL_PATH_HWND_LABEL_INPUT, hwnd,RectLabelInput);
+	GsGetControlSize(GLOBAL_PATH_HWND_LABEL_INPUT, cHwnd,RectLabelInput);
 
 	// Etykieta pliku wyjściowego
 	SetWindowPos(GLOBAL_PATH_HWND_LABEL_OUTPUT, nullptr,
 		RectLabelInput.left, RectLabelInput.bottom + 4, 100, RectLabelInput.bottom - RectLabelInput.top,
 		SWP_NOZORDER);
-	GsGetControlSize(GLOBAL_PATH_HWND_LABEL_OUTPUT, hwnd, RectLabelOutput);
+	GsGetControlSize(GLOBAL_PATH_HWND_LABEL_OUTPUT, cHwnd, RectLabelOutput);
 
 	// Etykieta katalogu
 	SetWindowPos(GLOBAL_PATH_HWND_LABEL_DIR, nullptr,
 		RectLabelInput.left, RectLabelOutput.bottom + 4, 100,
 		RectLabelOutput.bottom - RectLabelOutput.top, SWP_NOZORDER);
-	GsGetControlSize(GLOBAL_PATH_HWND_LABEL_DIR, hwnd, RectLabelDir);
+	GsGetControlSize(GLOBAL_PATH_HWND_LABEL_DIR, cHwnd, RectLabelDir);
 
 	// Pole tekstowe pliku wejściowego
 	SetWindowPos(GLOBAL_PATH_HWND_EDITINPUT, nullptr,
 		RectLabelInput.right + 16, RectLabelInput.top,
 		(GLOBAL_RECT_RIGHTTOPPANEL.right - GLOBAL_RECT_RIGHTTOPPANEL.left) / 2 + ((RectLabelInput.right - RectLabelInput.left) * 2),
 		RectEditPass.bottom - RectEditPass.top, SWP_NOZORDER);
-	GsGetControlSize(GLOBAL_PATH_HWND_EDITINPUT, hwnd, RectEditInput);
+	GsGetControlSize(GLOBAL_PATH_HWND_EDITINPUT, cHwnd, RectEditInput);
 
 	// Pole tekstowe pliku wyjściowego
 	SetWindowPos(GLOBAL_PATH_HWND_EDITOUTPUT, nullptr,
 		RectEditInput.left, RectLabelOutput.top, RectEditInput.right - RectEditInput.left,
 		RectEditPass.bottom - RectEditPass.top, SWP_NOZORDER);
-	GsGetControlSize(GLOBAL_PATH_HWND_EDITOUTPUT, hwnd, RectEditOutput);
+	GsGetControlSize(GLOBAL_PATH_HWND_EDITOUTPUT, cHwnd, RectEditOutput);
 
 	// Pole tekstowe katalogu
 	SetWindowPos(GLOBAL_PATH_HWND_EDITDIR, nullptr,
 		RectEditOutput.left, RectLabelDir.top, RectEditOutput.right - RectEditOutput.left,
 		RectEditPass.bottom - RectEditPass.top, SWP_NOZORDER);
-	GsGetControlSize(GLOBAL_PATH_HWND_EDITDIR, hwnd, RectEditDir);
+	GsGetControlSize(GLOBAL_PATH_HWND_EDITDIR, cHwnd, RectEditDir);
 
 	// Przycisk radiowy AES 128
 	SetWindowPos(GLOBAL_HWND_RGROUP_AES128, nullptr,
@@ -495,13 +489,13 @@ void __fastcall OnResize(HWND hwnd, UINT message, LPARAM lParam)
 		GLOBAL_RECT_LEFTBOTTPANEL.top + ((GLOBAL_RECT_LEFTBOTTPANEL.bottom - GLOBAL_RECT_LEFTBOTTPANEL.top) / 2) - ((RectEditPass.bottom - RectEditPass.top) / 2),
 		iWidthMainWindow / 4 - 32,
 		RectEditPass.bottom - RectEditPass.top, SWP_NOZORDER);
-	GsGetControlSize(GLOBAL_HWND_RGROUP_AES128, hwnd, RectRGroupAES128);
+	GsGetControlSize(GLOBAL_HWND_RGROUP_AES128, cHwnd, RectRGroupAES128);
 
 	// Przycisk radiowy AES 256
 	SetWindowPos(GLOBAL_HWND_RGROUP_AES256, nullptr,
 		iWidthMainWindow / 4 + 16, RectRGroupAES128.top, iWidthMainWindow / 4 - 32,
 		RectEditPass.bottom - RectEditPass.top, SWP_NOZORDER);
-	GsGetControlSize(GLOBAL_HWND_RGROUP_AES256, hwnd, RectRGroupAES256);
+	GsGetControlSize(GLOBAL_HWND_RGROUP_AES256, cHwnd, RectRGroupAES256);
 
 	// Przycisk radiowy szyfrowania prostego.
 	SetWindowPos(GLOBAL_HWND_RGROUP_AESBASIC, nullptr,
@@ -509,16 +503,16 @@ void __fastcall OnResize(HWND hwnd, UINT message, LPARAM lParam)
 		GLOBAL_RECT_RIGHTBOTTPANEL.top + ((GLOBAL_RECT_RIGHTBOTTPANEL.bottom - GLOBAL_RECT_RIGHTBOTTPANEL.top) / 2) - ((RectEditPass.bottom - RectEditPass.top) / 2),
 		iWidthMainWindow / 4 - 32,
 		RectEditPass.bottom - RectEditPass.top, SWP_NOZORDER);
-	GsGetControlSize(GLOBAL_HWND_RGROUP_AESBASIC, hwnd, RectRGroupAESBasic);
+	GsGetControlSize(GLOBAL_HWND_RGROUP_AESBASIC, cHwnd, RectRGroupAESBasic);
 
 	// Przycisk radiowy szyfrowania profesjonalnego.
 	SetWindowPos(GLOBAL_HWND_RGROUP_AESPROFF, nullptr,
 		iWidthMainWindow / 2 + (iWidthMainWindow / 4) + 16, RectRGroupAES128.top, iWidthMainWindow / 4 - 32,
 		RectEditPass.bottom - RectEditPass.top, SWP_NOZORDER);
-	GsGetControlSize(GLOBAL_HWND_RGROUP_AESPROFF, hwnd, RectRGroupAESPROFF);
+	GsGetControlSize(GLOBAL_HWND_RGROUP_AESPROFF, cHwnd, RectRGroupAESPROFF);
 }
 //---------------------------------------------------------------------------
-void __fastcall OnCommand(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+void __fastcall OnCommand(const HWND cHwnd, UINT message, const WPARAM cWParam, const LPARAM cLParam)
 /**
 	OPIS METOD (FUNKCJI): Procedura wywoływana podczas kliknięcia kontrolkę
 	OPIS ARGUMENTÓW:
@@ -527,9 +521,9 @@ void __fastcall OnCommand(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 */
 {
 	// === Przyciski znajdujące się na toolbarze ===
-	if(reinterpret_cast<HWND>(lParam) ==	GLOBAL_HWND_HTOOLBAR)
+	if(reinterpret_cast<HWND>(cLParam) ==	GLOBAL_HWND_HTOOLBAR)
 	{
-		switch(LOWORD(wParam)) // Przyciski toolbaru
+		switch(LOWORD(cWParam)) // Przyciski toolbaru
 		{
 			case IDBUTTON_OPEN_FILE:
 				{
@@ -537,49 +531,47 @@ void __fastcall OnCommand(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 					if(GsLoadFile(szFileOpen, MAX_PATH))
 					{
-						// Funkcja sprawdza rozszerzenie pliku "lpszFileName” i zależnie od jej wyniku ustawia
-						// plik wejściowy i wyjściowy.
-						ProcessExtendFileName(szFileOpen);
+						SelectViewFile(szFileOpen);
 					}
-					ShowWindow(GLOBAL_PATH_HWND_EDITDIR, SW_HIDE);
-					ShowWindow(GLOBAL_PATH_HWND_EDITINPUT, SW_SHOW);
-					ShowWindow(GLOBAL_PATH_HWND_EDITOUTPUT, SW_SHOW);
-					SetWindowText(GLOBAL_PATH_HWND_EDITDIR, TEXT(""));
 			}
 			break;
+			//---
+			case IDBUTTON_OPEN_DIR:
+				SecureZeroMemory(GLOBAL_GETPROCESS_DIRECTORY, sizeof(GLOBAL_GETPROCESS_DIRECTORY));
+
+				if(GsSelectProjectDirectory(GLOBAL_GETPROCESS_DIRECTORY, const_cast<TCHAR *>(TEXT("F:\\DevelopGS\\Testy"))))
+				{
+					SelectViewDir(GLOBAL_GETPROCESS_DIRECTORY);
+				}
+				break;
 			//---
 			case IDBUTTON_RUN_PROCESS:
 			// Rozpoczecie procesu szyfrowania lub deszyfrowania pojedyńczego pliku, lub całej zawartości katalogu.
 			{
 				TCHAR szFile[MAX_PATH], szDir[MAX_PATH];
+				#ifdef __MYDEBUG__
+					GsStoreData::isiCleanup = 0;
+				#endif
+
 
 				if(GetWindowText(GLOBAL_PATH_HWND_EDITINPUT, szFile, MAX_PATH) > 0)
 					// Operacja na pojedyńczym pliku
 					{ProcessFilesNames();}
 				else if(GetWindowText(GLOBAL_PATH_HWND_EDITDIR, szDir, MAX_PATH) > 0)
 					// Operacja na całym katalogu
-					{ProcessDirectoryName(GLOBAL_PROJECTDIRECTORY);}
+					{ProcessDirectoryName(GLOBAL_GETPROCESS_DIRECTORY);}
+				// Przycisk uruchamiania operacji zostaje dezaktywowany po jej zakończeniu [13-12-2025]
+				SendMessage(GLOBAL_HWND_HTOOLBAR, TB_ENABLEBUTTON, IDBUTTON_RUN_PROCESS, MAKELONG(FALSE, 0));
+				#ifdef __MYDEBUG__
+					StringCchPrintf(GlmainszInfoDebug, MAX_PATH, TEXT("GsStoreData::isiCleanup: %d"), GsStoreData::isiCleanup);
+					MessageBox(nullptr, GlmainszInfoDebug, TEXT("Informacja"), MB_ICONINFORMATION);
+				#endif
+
 			}
 			break;
 			//---
 			case IDBUTTON_SAVECOFIG:
 				WriteFileConfig();
-				break;
-			//---
-			case IDBUTTON_OPEN_DIR:
-				SecureZeroMemory(GLOBAL_PROJECTDIRECTORY, sizeof(GLOBAL_PROJECTDIRECTORY));
-
-				if(GsSelectProjectDirectory(GLOBAL_PROJECTDIRECTORY, const_cast<TCHAR *>(TEXT("F:\\DevelopGS\\Testy"))))
-				{
-					//GsSelectProjectDirectory(GLOBAL_PROJECTDIRECTORY, const_cast<TCHAR *>(TEXT("")));
-					// pokaż kontrolkę
-					ShowWindow(GLOBAL_PATH_HWND_EDITDIR, SW_SHOW);
-					ShowWindow(GLOBAL_PATH_HWND_EDITINPUT, SW_HIDE);
-					ShowWindow(GLOBAL_PATH_HWND_EDITOUTPUT, SW_HIDE);
-					SetWindowText(GLOBAL_PATH_HWND_EDITDIR, GLOBAL_PROJECTDIRECTORY);
-					SetWindowText(GLOBAL_PATH_HWND_EDITINPUT, TEXT(""));
-					SetWindowText(GLOBAL_PATH_HWND_EDITOUTPUT, TEXT(""));
-				}
 				break;
 			//---
 			case IDBUTTON_SAVE_HISTORY:
@@ -594,7 +586,7 @@ void __fastcall OnCommand(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 				//---
 			case IDBUTTON_INFO:
 			{
-				DialogBox(GLOBAL_HINSTANCE, MAKEINTRESOURCE(IDD_ABOUTBOX), hwnd, GsAboutDlgProc);
+				DialogBox(GLOBAL_HINSTANCE, MAKEINTRESOURCE(IDD_ABOUTBOX), cHwnd, GsAboutDlgProc);
 			}
 			break;
 			//---
@@ -604,8 +596,8 @@ void __fastcall OnCommand(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 	// === Przyciski nieznajdujące się na tool barze ===
 		//	Przycisk odkrywania tekstu hasła
-	else if((reinterpret_cast<HWND>(lParam) ==	GLOBAL_HWND_BUTTON_VIEPASS) && (LOWORD(wParam) == IDBUTTON_VIEWPASS) &&
-		(HIWORD(wParam) == BN_CLICKED))
+	else if((reinterpret_cast<HWND>(cLParam) ==	GLOBAL_HWND_BUTTON_VIEPASS) && (LOWORD(cWParam) == IDBUTTON_VIEWPASS) &&
+		(HIWORD(cWParam) == BN_CLICKED))
 	{
 		// Pokazanie lub ukrycie hasłą.
 		/*LRESULT checked =*/ SendMessage(GLOBAL_HWND_BUTTON_VIEPASS, BM_GETCHECK, 0, 0);
@@ -615,10 +607,10 @@ void __fastcall OnCommand(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		InvalidateRect(GLOBAL_HWND_EDITPASSWORD, nullptr, TRUE); // przerysuj przycisk.
 	}
 	// === Kontrola poprawnego wprowadzenia danych: Hasła, ścieżki wejściowej i wyjściowej. ===
-	else if(	((reinterpret_cast<HWND>(lParam) == GLOBAL_HWND_EDITPASSWORD) && (LOWORD(wParam) == IDEDIT_PASS) && (HIWORD(wParam) == EN_CHANGE)) ||
-						((reinterpret_cast<HWND>(lParam) == GLOBAL_PATH_HWND_EDITINPUT) && (LOWORD(wParam) == IDEDIT_PATH_INPUT) && (HIWORD(wParam) == EN_CHANGE)) ||
-						((reinterpret_cast<HWND>(lParam) == GLOBAL_PATH_HWND_EDITOUTPUT) && (LOWORD(wParam) == IDEDIT_PATH_OUTPUT) && (HIWORD(wParam) == EN_CHANGE)) ||
-						((reinterpret_cast<HWND>(lParam) == GLOBAL_PATH_HWND_EDITDIR) && (LOWORD(wParam) == IDBUTTON_PATH_DIR) && (HIWORD(wParam) == EN_CHANGE))
+	else if(	((reinterpret_cast<HWND>(cLParam) == GLOBAL_HWND_EDITPASSWORD) && (LOWORD(cWParam) == IDEDIT_PASS) && (HIWORD(cWParam) == EN_CHANGE)) ||
+						((reinterpret_cast<HWND>(cLParam) == GLOBAL_PATH_HWND_EDITINPUT) && (LOWORD(cWParam) == IDEDIT_PATH_INPUT) && (HIWORD(cWParam) == EN_CHANGE)) ||
+						((reinterpret_cast<HWND>(cLParam) == GLOBAL_PATH_HWND_EDITOUTPUT) && (LOWORD(cWParam) == IDEDIT_PATH_OUTPUT) && (HIWORD(cWParam) == EN_CHANGE)) ||
+						((reinterpret_cast<HWND>(cLParam) == GLOBAL_PATH_HWND_EDITDIR) && (LOWORD(cWParam) == IDBUTTON_PATH_DIR) && (HIWORD(cWParam) == EN_CHANGE))
 				 )
 	{
 		// Przycisk rozpoczęcia procesu zacznie się tylko wtedy gdy będą istnieć trzy zmienne:
@@ -630,10 +622,10 @@ void __fastcall OnCommand(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	// === Obsługa komunikatów z traya. ===
 	else // Wybrano pozycja z menu traya.
 	{
-		switch(LOWORD(wParam))
+		switch(LOWORD(cWParam))
 		{
 			case IDI_TRAY_EXIT:
-				PostMessage(hwnd, WM_CLOSE, 0, 0); // zamknij aplikację.
+				PostMessage(cHwnd, WM_CLOSE, 0, 0); // zamknij aplikację.
 				break;
 			//---
 			default: break;
@@ -641,7 +633,7 @@ void __fastcall OnCommand(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	}
 }
 //---------------------------------------------------------------------------
-void __fastcall OnNotify(HWND hwnd, UINT message, LPARAM lParam)
+void __fastcall OnNotify(const HWND cHwnd, UINT message, const LPARAM cLParam)
 /**
 	OPIS METOD (FUNKCJI): Procedura wywoływana podczas komunikatu WM_NOTIFY
 	OPIS ARGUMENTÓW:
@@ -650,21 +642,21 @@ void __fastcall OnNotify(HWND hwnd, UINT message, LPARAM lParam)
 */
 {
 
-	switch ((reinterpret_cast<LPNMHDR>(lParam))->code)
+	switch ((reinterpret_cast<LPNMHDR>(cLParam))->code)
 	{
 		//*******************************************************
 		//*					 Komunikaty z kontrolki Tool Tip						*
 		//*******************************************************
 		case TTN_GETDISPINFO:	//Dymki pomocy
 		{
-			LPNMTTDISPINFO	lPNMDispInfo = reinterpret_cast<LPNMTTDISPINFO>(lParam);
+			LPNMTTDISPINFO	lPNMDispInfo = reinterpret_cast<LPNMTTDISPINFO>(cLParam);
 			lPNMDispInfo->hinst = GLOBAL_HINSTANCE;	//Ustawić, jeśli tekst do wyświetlenia będzie pochodził zasobów.
-			UINT_PTR idButton = lPNMDispInfo->hdr.idFrom;
+			UINT_PTR UIpButton = lPNMDispInfo->hdr.idFrom;
 
 			//Wyłuskanie okna podpowiedzi
-			HWND hWindowTips = reinterpret_cast<HWND>(SendMessage(GLOBAL_HWND_HTOOLBAR, TB_GETTOOLTIPS, (WPARAM)0, (LPARAM)0));
-			if(!hWindowTips) return;
-			if(HICON hIcon = ImageList_GetIcon(GLOBAL_HIMGLIST32, static_cast<int>(idButton) - ID_START_COUNT, ILD_IMAGE))
+			const HWND cHWindowTips = reinterpret_cast<HWND>(SendMessage(GLOBAL_HWND_HTOOLBAR, TB_GETTOOLTIPS, (WPARAM)0, (LPARAM)0));
+			if(!cHWindowTips) return;
+			if(HICON hIcon = ImageList_GetIcon(GLOBAL_HIMGLIST32, static_cast<int>(UIpButton) - ID_START_COUNT, ILD_IMAGE))
 			{
 				//Ustawienie maksymalnej szerokości okna podpowiedzi i umieszczenie tytułu z ikonką
 				SendMessage(lPNMDispInfo->hdr.hwndFrom, TTM_SETTITLE, reinterpret_cast<WPARAM>(hIcon),
@@ -672,7 +664,7 @@ void __fastcall OnNotify(HWND hwnd, UINT message, LPARAM lParam)
 				DestroyIcon(hIcon); hIcon = nullptr;
 			}
 
-			switch(idButton)
+			switch(UIpButton)
 			{
 				case IDBUTTON_OPEN_FILE:
 					lPNMDispInfo->lpszText = const_cast<TCHAR *>(GLOBAL_STRINGS[STR_TEXT_HINT_OPEN_FILE]);
@@ -719,7 +711,7 @@ void __fastcall OnNotify(HWND hwnd, UINT message, LPARAM lParam)
 	}
 }
 //---------------------------------------------------------------------------
-void __fastcall OnPaint(HWND hwnd, UINT message, LPARAM lParam)
+void __fastcall OnPaint(const HWND cHwnd, UINT message, LPARAM lParam)
 /**
 	OPIS METOD (FUNKCJI): Procedura wywoływana podczas malowania w oknie
 	OPIS ARGUMENTÓW:
@@ -727,18 +719,18 @@ void __fastcall OnPaint(HWND hwnd, UINT message, LPARAM lParam)
 	OPIS WYNIKU METODY (FUNKCJI):
 */
 {
-	PAINTSTRUCT ps;
-	HDC hdc = BeginPaint(hwnd, &ps);
+	PAINTSTRUCT PSPaintStruct;
+	const HDC cHDC = BeginPaint(cHwnd, &PSPaintStruct);
 
-	DrawEdge(hdc, &GLOBAL_RECT_LEFTTOPPANEL, EDGE_SUNKEN, BF_RECT | BF_FLAT);
-	DrawEdge(hdc, &GLOBAL_RECT_RIGHTTOPPANEL, EDGE_SUNKEN, BF_RECT | BF_FLAT);
-	DrawEdge(hdc, &GLOBAL_RECT_LEFTBOTTPANEL, EDGE_SUNKEN, BF_RECT | BF_FLAT);
-	DrawEdge(hdc, &GLOBAL_RECT_RIGHTBOTTPANEL, EDGE_SUNKEN, BF_RECT | BF_FLAT);
+	DrawEdge(cHDC, &GLOBAL_RECT_LEFTTOPPANEL, EDGE_SUNKEN, BF_RECT | BF_FLAT);
+	DrawEdge(cHDC, &GLOBAL_RECT_RIGHTTOPPANEL, EDGE_SUNKEN, BF_RECT | BF_FLAT);
+	DrawEdge(cHDC, &GLOBAL_RECT_LEFTBOTTPANEL, EDGE_SUNKEN, BF_RECT | BF_FLAT);
+	DrawEdge(cHDC, &GLOBAL_RECT_RIGHTBOTTPANEL, EDGE_SUNKEN, BF_RECT | BF_FLAT);
 
-	EndPaint(hwnd, &ps);
+	EndPaint(cHwnd, &PSPaintStruct);
 }
 //---------------------------------------------------------------------------
-void __fastcall OnDrawItem(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+void __fastcall OnDrawItem(const HWND cHwnd, UINT message, WPARAM wParam, LPARAM lParam)
 /**
 	OPIS METOD (FUNKCJI): Procedura własnego rysowania
 	OPIS ARGUMENTÓW:
@@ -746,13 +738,13 @@ void __fastcall OnDrawItem(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam
 	OPIS WYNIKU METODY (FUNKCJI):
 */
 {
-	LPDRAWITEMSTRUCT dis = reinterpret_cast<LPDRAWITEMSTRUCT>(lParam);
+	const LPDRAWITEMSTRUCT cpDIS = reinterpret_cast<LPDRAWITEMSTRUCT>(lParam);
 
-	switch(dis->CtlID)
+	switch(cpDIS->CtlID)
 	{
 		case IDBUTTON_VIEWPASS:
 		{
-			DrawButtonViewPass(hwnd, dis);
+			DrawButtonViewPass(cHwnd, cpDIS);
 		}
 		break;
 		//---
@@ -760,7 +752,7 @@ void __fastcall OnDrawItem(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam
 	}
 }
 //---------------------------------------------------------------------------
-void __fastcall CreateToolBar(HWND hwnd)
+void __fastcall CreateToolBar(const HWND cHwnd)
 /**
 	OPIS METOD(FUNKCJI): Stworzenie ImageList, oraz ToolBar
 	OPIS ARGUMENTÓW:
@@ -803,7 +795,7 @@ void __fastcall CreateToolBar(HWND hwnd)
 	GLOBAL_HWND_HTOOLBAR = CreateWindowEx(WS_EX_STATICEDGE, TOOLBARCLASSNAME, nullptr,
 		WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_BORDER |
 		TBSTYLE_TOOLTIPS | TBSTYLE_FLAT | TBSTYLE_LIST,
-		0, 0, 0, 0, hwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
+		0, 0, 0, 0, cHwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
 	if(GLOBAL_HWND_HTOOLBAR == nullptr) return;
 
 	SendMessage(GLOBAL_HWND_HTOOLBAR,TB_SETIMAGELIST,0, reinterpret_cast<LPARAM>(GLOBAL_HIMGLIST32));
@@ -840,7 +832,7 @@ void __fastcall CreateToolBar(HWND hwnd)
 
 }
 //-------------------------------------------------------------------------
-void __fastcall CreateStatusBar(HWND hwnd)
+void __fastcall CreateStatusBar(const HWND cHwnd)
 /**
 	OPIS METOD(FUNKCJI):
 	OPIS ARGUMENTÓW:
@@ -850,13 +842,13 @@ void __fastcall CreateStatusBar(HWND hwnd)
 {
 	int iStatusBarWidths[] = {768, -1};
 	GLOBAL_HWND_HSTATUSBAR = CreateWindowEx(0, STATUSCLASSNAME, nullptr, SBARS_TOOLTIPS | WS_CHILD | WS_VISIBLE,
-																		0, 0, 0, 0, hwnd,nullptr, GLOBAL_HINSTANCE, nullptr );
+																		0, 0, 0, 0, cHwnd,nullptr, GLOBAL_HINSTANCE, nullptr );
 	if(GLOBAL_HWND_HSTATUSBAR == nullptr) return;
 
 	SendMessage(GLOBAL_HWND_HSTATUSBAR, SB_SETPARTS, 2, reinterpret_cast<LPARAM>(iStatusBarWidths));
 }
 //---------------------------------------------------------------------------
-void __fastcall CreateOtherControls(HWND hwnd)
+void __fastcall CreateOtherControls(const HWND cHwnd)
 /**
 	OPIS METOD(FUNKCJI): Tworzenie pozostałych kontrolek
 	OPIS ARGUMENTÓW:
@@ -867,82 +859,82 @@ void __fastcall CreateOtherControls(HWND hwnd)
 	//Kontrolka memo
 	GLOBAL_HWND_HMEMORYTEXTINFOS = CreateWindowEx(0, TEXT("EDIT"), nullptr, WS_CHILD | WS_VISIBLE | WS_BORDER |
 		WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_READONLY,
-		0, 0, 0, 0, hwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
+		0, 0, 0, 0, cHwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
 	if(GLOBAL_HWND_HMEMORYTEXTINFOS == nullptr) return;
 	// Edycja hasła
 	GLOBAL_HWND_EDITPASSWORD = CreateWindowEx(0, TEXT("EDIT"), nullptr,
 		WS_CHILD | WS_VISIBLE | WS_BORDER | ES_PASSWORD,//	| SS_NOTIFY,
-		0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(IDEDIT_PASS), GLOBAL_HINSTANCE, nullptr);
+		0, 0, 0, 0, cHwnd, reinterpret_cast<HMENU>(IDEDIT_PASS), GLOBAL_HINSTANCE, nullptr);
 	if(GLOBAL_HWND_EDITPASSWORD == nullptr) return;
 	// Etykieta
 	GLOBAL_HWND_LABELPASS = CreateWindowEx(0, TEXT("STATIC"), TEXT("Hasło dla szyfrowania:"),
 		WS_CHILD | WS_VISIBLE | SS_NOTIFY, 0, 0, 0, 0,
-		hwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
+		cHwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
 	if(GLOBAL_HWND_LABELPASS == nullptr) return;
 	// Przycisk pokazywania hasła
 	GLOBAL_HWND_BUTTON_VIEPASS = CreateWindowEx(0, TEXT("BUTTON"), TEXT("Pokaż hasło"),
 		WS_TABSTOP | WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
 		0, 0, 0, 0,
-		hwnd, reinterpret_cast<HMENU>(IDBUTTON_VIEWPASS), GLOBAL_HINSTANCE, nullptr);
+		cHwnd, reinterpret_cast<HMENU>(IDBUTTON_VIEWPASS), GLOBAL_HINSTANCE, nullptr);
 	SendMessage(GLOBAL_HWND_BUTTON_VIEPASS, BM_SETIMAGE, IMAGE_ICON, reinterpret_cast<LPARAM>(GLOBAL_HICON_VIEWPASS));
 	SetWindowSubclass(GLOBAL_HWND_BUTTON_VIEPASS, ButtonViewPassProc, 1, 0);
 
 	// Etykieta ścieżki pliku wejściowego
 	GLOBAL_PATH_HWND_LABEL_INPUT = CreateWindowEx(0, TEXT("STATIC"), TEXT("Plik wejściowy:"),
 		WS_CHILD | WS_VISIBLE | SS_NOTIFY, 0, 0, 0, 0,
-		hwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
+		cHwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
 	if(GLOBAL_PATH_HWND_LABEL_INPUT == nullptr) return;
 	// Etykieta ścieżki pliku wyjściowego
 	GLOBAL_PATH_HWND_LABEL_OUTPUT = CreateWindowEx(0, TEXT("STATIC"), TEXT("Plik wyjściowy:"),
 		WS_CHILD | WS_VISIBLE | SS_NOTIFY, 0, 0, 0, 0,
-		hwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
+		cHwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
 	if(GLOBAL_PATH_HWND_LABEL_OUTPUT == nullptr) return;
 	// Etykieta katalogu
 	GLOBAL_PATH_HWND_LABEL_DIR = CreateWindowEx(0, TEXT("STATIC"), TEXT("Katalog pracy:"),
 		WS_CHILD | WS_VISIBLE | SS_NOTIFY, 0, 0, 0, 0,
-		hwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
+		cHwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
 	if(GLOBAL_PATH_HWND_LABEL_DIR == nullptr) return;
 	// Pole tekstowe sciezki pliku wejściowego
 	GLOBAL_PATH_HWND_EDITINPUT = CreateWindowEx(0, TEXT("EDIT"), nullptr,
 		WS_CHILD | WS_BORDER | SS_NOTIFY | ES_READONLY,
-		0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(IDEDIT_PATH_INPUT), GLOBAL_HINSTANCE, nullptr);
+		0, 0, 0, 0, cHwnd, reinterpret_cast<HMENU>(IDEDIT_PATH_INPUT), GLOBAL_HINSTANCE, nullptr);
 	if(GLOBAL_PATH_HWND_EDITINPUT == nullptr) return;
 	// Pole tekstowe sciezki pliku wyjściowego
 	GLOBAL_PATH_HWND_EDITOUTPUT = CreateWindowEx(0, TEXT("EDIT"), nullptr,
 		WS_CHILD | WS_BORDER | SS_NOTIFY | ES_READONLY,
-		0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(IDEDIT_PATH_OUTPUT), GLOBAL_HINSTANCE, nullptr);
+		0, 0, 0, 0, cHwnd, reinterpret_cast<HMENU>(IDEDIT_PATH_OUTPUT), GLOBAL_HINSTANCE, nullptr);
 	if(GLOBAL_PATH_HWND_EDITOUTPUT == nullptr) return;
 	// Pole tekstowe katalogu
 	GLOBAL_PATH_HWND_EDITDIR = CreateWindowEx(0, TEXT("EDIT"), nullptr,
 		WS_CHILD | WS_BORDER | SS_NOTIFY | ES_READONLY,
-		0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(IDBUTTON_PATH_DIR), GLOBAL_HINSTANCE, nullptr);
+		0, 0, 0, 0, cHwnd, reinterpret_cast<HMENU>(IDBUTTON_PATH_DIR), GLOBAL_HINSTANCE, nullptr);
 	if(GLOBAL_PATH_HWND_EDITDIR == nullptr) return;
 
 	// Przycisk radiowy AES 128
 	GLOBAL_HWND_RGROUP_AES128 = CreateWindowEx(0, TEXT("BUTTON"), TEXT("Standard szyfrowania: AES 128"),
 		WS_CHILD | WS_VISIBLE | WS_GROUP | BS_AUTORADIOBUTTON,// | WS_BORDER,
-		0, 0, 0, 0, hwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
+		0, 0, 0, 0, cHwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
 	if(GLOBAL_HWND_RGROUP_AES128 == nullptr) return;
 	// Przycisk radiowy AES 256
 	GLOBAL_HWND_RGROUP_AES256 = CreateWindowEx(0, TEXT("BUTTON"), TEXT("Standard szyfrowania: AES 256"),
 		WS_CHILD | WS_VISIBLE | BS_AUTORADIOBUTTON,// | WS_BORDER,
-		0, 0, 0, 0, hwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
+		0, 0, 0, 0, cHwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
 	if(GLOBAL_HWND_RGROUP_AES256 == nullptr) return;
 	SendMessage(GLOBAL_HWND_RGROUP_AES256, BM_SETCHECK, BST_CHECKED, 0);	 // Zaznaczony AES 256
 
 	// Przyciski radiowe szyfrowania prostego i profesjonalnego.
 	GLOBAL_HWND_RGROUP_AESBASIC = CreateWindowEx(0, TEXT("BUTTON"), TEXT("Szyfrowanie uproszczone"),
 		WS_CHILD | WS_VISIBLE | WS_GROUP | BS_AUTORADIOBUTTON,// | WS_BORDER,
-		0, 0, 0, 0, hwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
+		0, 0, 0, 0, cHwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
 	if(GLOBAL_HWND_RGROUP_AESBASIC == nullptr) return;
 	GLOBAL_HWND_RGROUP_AESPROFF = CreateWindowEx(0, TEXT("BUTTON"), TEXT("Szyfrowanie profesjonalne"),
 		WS_CHILD | WS_VISIBLE | BS_AUTORADIOBUTTON,// | WS_BORDER,
-		0, 0, 0, 0, hwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
+		0, 0, 0, 0, cHwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
 	if(GLOBAL_HWND_RGROUP_AESPROFF == nullptr) return;
 	SendMessage(GLOBAL_HWND_RGROUP_AESBASIC, BM_SETCHECK, BST_CHECKED, 0);	 // Zaznaczony Szyfrowanie uproszczone
 }
 //---------------------------------------------------------------------------
-void __fastcall AddTrayIcon(HWND hwnd)
+void __fastcall AddTrayIcon(const HWND cHwnd)
 /**
 	OPIS METOD(FUNKCJI):
 	OPIS ARGUMENTÓW:
@@ -950,12 +942,12 @@ void __fastcall AddTrayIcon(HWND hwnd)
 	OPIS WYNIKU METODY(FUNKCJI):
 */
 {
-	TCHAR wlpszText[GLOBAL_CIMAXLONGTEXTHINT];
+	TCHAR szText[GLOBAL_CIMAXLONGTEXTHINT];
 
-	SecureZeroMemory(&wlpszText, sizeof(wlpszText));
+	SecureZeroMemory(&szText, sizeof(szText));
 
 	GLOBAL_NID.cbSize = sizeof(NOTIFYICONDATA);
-	GLOBAL_NID.hWnd = hwnd;
+	GLOBAL_NID.hWnd = cHwnd;
 	GLOBAL_NID.uID = 1;
 	GLOBAL_NID.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP | NIF_INFO;
 	GLOBAL_NID.uCallbackMessage = WM_TRAYICON;
@@ -972,7 +964,7 @@ void __fastcall AddTrayIcon(HWND hwnd)
 	Shell_NotifyIcon(NIM_ADD, &GLOBAL_NID);
 }
 //---------------------------------------------------------------------------
-void __fastcall ShowTrayMenu(HWND hwnd)
+void __fastcall ShowTrayMenu(const HWND cHwnd)
 /**
 	OPIS METOD(FUNKCJI): Tworzenie i otwieranie popupmenu traja
 	OPIS ARGUMENTÓW:
@@ -990,9 +982,9 @@ void __fastcall ShowTrayMenu(HWND hwnd)
 		// potrzebne do poprawnego wyświetlenia menu
 		POINT pt;
 		GetCursorPos(&pt);
-		SetForegroundWindow(hwnd);
+		SetForegroundWindow(cHwnd);
 		TrackPopupMenu(hMenu, TPM_BOTTOMALIGN | TPM_LEFTALIGN,
-									pt.x, pt.y, 0, hwnd, nullptr);
+									pt.x, pt.y, 0, cHwnd, nullptr);
 
 		DestroyMenu(hMenu); hMenu = nullptr;
 	}
@@ -1007,40 +999,40 @@ void __fastcall ReadFileConfig()
 */
 {
 	constexpr int ciSizeTextTypeAES=48;
-	TCHAR lpszGetPassword[MAX_PATH], lpszSizeTypeAES[ciSizeTextTypeAES],
-		lpszTypeAES[ciSizeTextTypeAES], pszOut[MAX_PATH];
+	TCHAR szGetPassword[MAX_PATH], szSizeTypeAES[ciSizeTextTypeAES],
+		szTypeAES[ciSizeTextTypeAES], szOut[MAX_PATH];
 
-	SecureZeroMemory(&lpszGetPassword, sizeof(lpszGetPassword));
-	SecureZeroMemory(&lpszSizeTypeAES, sizeof(lpszSizeTypeAES));
-	GetPrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_KEY_PASSWORD, GLOBAL_TEXT_DEFAULT_PASSWORD, lpszGetPassword,
+	SecureZeroMemory(&szGetPassword, sizeof(szGetPassword));
+	SecureZeroMemory(&szSizeTypeAES, sizeof(szSizeTypeAES));
+	GetPrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_KEY_PASSWORD, GLOBAL_TEXT_DEFAULT_PASSWORD, szGetPassword,
 		MAX_PATH, GLOBAL_PATHCONFIG);
-	GetPrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_KEY_TYPEAES, GLOBAL_VALUE_SIZEAES_256, lpszSizeTypeAES,
+	GetPrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_KEY_TYPEAES, GLOBAL_VALUE_SIZEAES_256, szSizeTypeAES,
 		MAX_PATH, GLOBAL_PATHCONFIG);
-	GetPrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_AESTYPE, GLOBAL_VALUE_TYPEAES_BASIC, lpszTypeAES,
+	GetPrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_AESTYPE, GLOBAL_VALUE_TYPEAES_BASIC, szTypeAES,
 		MAX_PATH, GLOBAL_PATHCONFIG);
 	// Deszyfrowanie odczytanego hasła
 
 	// Wypisanie zdeszyfrowanego hasła do kontrolki
-	if(GsAESFunDecodeBase64(lpszGetPassword, pszOut, MAX_PATH)) SetWindowText(GLOBAL_HWND_EDITPASSWORD, pszOut);
+	if(GsAESFunDecodeBase64(szGetPassword, szOut, MAX_PATH)) SetWindowText(GLOBAL_HWND_EDITPASSWORD, szOut);
 	else return;
 	// Odczyt ustawionej długości klucza AES
-	if(StrRStrI(lpszSizeTypeAES, nullptr, GLOBAL_VALUE_SIZEAES_128))
+	if(StrRStrI(szSizeTypeAES, nullptr, GLOBAL_VALUE_SIZEAES_128))
 	{
 		SendMessage(GLOBAL_HWND_RGROUP_AES128, BM_SETCHECK, BST_CHECKED, 0);
 		SendMessage(GLOBAL_HWND_RGROUP_AES256, BM_SETCHECK, BST_UNCHECKED, 0);
 	}
-	else if(StrRStrI(lpszSizeTypeAES, nullptr, GLOBAL_VALUE_SIZEAES_256))
+	else if(StrRStrI(szSizeTypeAES, nullptr, GLOBAL_VALUE_SIZEAES_256))
 	{
 		SendMessage(GLOBAL_HWND_RGROUP_AES256, BM_SETCHECK, BST_CHECKED, 0);
 		SendMessage(GLOBAL_HWND_RGROUP_AES128, BM_SETCHECK, BST_UNCHECKED, 0);
 	}
 	// Odczyt ustawionego typu algorytmu AES, uproszczonego lub profesjonalnego.
-	if(StrRStrI(lpszTypeAES, nullptr, GLOBAL_VALUE_TYPEAES_BASIC))
+	if(StrRStrI(szTypeAES, nullptr, GLOBAL_VALUE_TYPEAES_BASIC))
 	{
 		SendMessage(GLOBAL_HWND_RGROUP_AESBASIC, BM_SETCHECK, BST_CHECKED, 0);
 		SendMessage(GLOBAL_HWND_RGROUP_AESPROFF, BM_SETCHECK, BST_UNCHECKED, 0);
 	}
-	else if(StrRStrI(lpszTypeAES, nullptr, GLOBAL_VALUE_TYPEAES_PROFF))
+	else if(StrRStrI(szTypeAES, nullptr, GLOBAL_VALUE_TYPEAES_PROFF))
 	{
 		SendMessage(GLOBAL_HWND_RGROUP_AESPROFF, BM_SETCHECK, BST_CHECKED, 0);
 		SendMessage(GLOBAL_HWND_RGROUP_AESBASIC, BM_SETCHECK, BST_UNCHECKED, 0);
@@ -1056,13 +1048,13 @@ void __fastcall WriteFileConfig()
 */
 {
 	constexpr int ciSizeTextTypeAES=48;
-	TCHAR lpszSetPassword[MAX_PATH], lpszSizeTypeAES[ciSizeTextTypeAES],
-		lpszTypeAES[ciSizeTextTypeAES];
-	SecureZeroMemory(&lpszSetPassword, sizeof(lpszSetPassword));
-	SecureZeroMemory(&lpszSizeTypeAES, sizeof(lpszSizeTypeAES));
-	GetWindowText(GLOBAL_HWND_EDITPASSWORD, lpszSetPassword, MAX_PATH);
+	TCHAR szSetPassword[MAX_PATH], szSizeTypeAES[ciSizeTextTypeAES],
+		szTypeAES[ciSizeTextTypeAES];
+	SecureZeroMemory(&szSetPassword, sizeof(szSetPassword));
+	SecureZeroMemory(&szSizeTypeAES, sizeof(szSizeTypeAES));
+	GetWindowText(GLOBAL_HWND_EDITPASSWORD, szSetPassword, MAX_PATH);
 	// Zakodowanie hasła Base64
-	if(TCHAR *pszCryptPass = GsAESFunEncodeBase64(lpszSetPassword))
+	if(TCHAR *pszCryptPass = GsAESFunEncodeBase64(szSetPassword))
 	{
 		WritePrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_KEY_PASSWORD, pszCryptPass, GLOBAL_PATHCONFIG);
 		HeapFree(GetProcessHeap(), 0, pszCryptPass); pszCryptPass = nullptr;
@@ -1070,26 +1062,26 @@ void __fastcall WriteFileConfig()
 	// Typ AES-128, lub AES-256
 	if(SendMessage(GLOBAL_HWND_RGROUP_AES128, BM_GETCHECK, 0, 0) == BST_CHECKED)
 	{
-		StringCchCopy(lpszSizeTypeAES, ciSizeTextTypeAES, GLOBAL_VALUE_SIZEAES_128);
+		StringCchCopy(szSizeTypeAES, ciSizeTextTypeAES, GLOBAL_VALUE_SIZEAES_128);
 	}
 	else if(SendMessage(GLOBAL_HWND_RGROUP_AES256, BM_GETCHECK, 0, 0) == BST_CHECKED)
 	{
-		StringCchCopy(lpszSizeTypeAES, ciSizeTextTypeAES, GLOBAL_VALUE_SIZEAES_256);
+		StringCchCopy(szSizeTypeAES, ciSizeTextTypeAES, GLOBAL_VALUE_SIZEAES_256);
 	}
-	WritePrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_KEY_TYPEAES, lpszSizeTypeAES, GLOBAL_PATHCONFIG);
+	WritePrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_KEY_TYPEAES, szSizeTypeAES, GLOBAL_PATHCONFIG);
 	// Typ AES, uproszczony, lub profesionalny.
 	if(SendMessage(GLOBAL_HWND_RGROUP_AESBASIC, BM_GETCHECK, 0, 0) == BST_CHECKED)
 	{
-		StringCchCopy(lpszTypeAES, ciSizeTextTypeAES, GLOBAL_VALUE_TYPEAES_BASIC);
+		StringCchCopy(szTypeAES, ciSizeTextTypeAES, GLOBAL_VALUE_TYPEAES_BASIC);
 	}
 	else if(SendMessage(GLOBAL_HWND_RGROUP_AESPROFF, BM_GETCHECK, 0, 0) == BST_CHECKED)
 	{
-		StringCchCopy(lpszTypeAES, ciSizeTextTypeAES, GLOBAL_VALUE_TYPEAES_PROFF);
+		StringCchCopy(szTypeAES, ciSizeTextTypeAES, GLOBAL_VALUE_TYPEAES_PROFF);
 	}
-	WritePrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_AESTYPE, lpszTypeAES, GLOBAL_PATHCONFIG);
+	WritePrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_AESTYPE, szTypeAES, GLOBAL_PATHCONFIG);
 }
 //---------------------------------------------------------------------------
-AESResult __fastcall CreateHash(const enSizeSHABit eSizeSHABit)
+GsStoreData __fastcall CreateHash(const enSizeSHABit eSizeSHABit)
 /**
 	OPIS METOD(FUNKCJI): Tworzenie hasha z hasła
 	OPIS ARGUMENTÓW:
@@ -1103,7 +1095,7 @@ AESResult __fastcall CreateHash(const enSizeSHABit eSizeSHABit)
 	// Odczyt hasła
 	GetWindowText(GLOBAL_HWND_EDITPASSWORD, szGetPassword, MAX_PATH);
 
-	AESResult HashResult = GsAESFunComputeSHAHash(szGetPassword, eSizeSHABit);
+	GsStoreData HashResult = GsAESFunComputeSHAHash(szGetPassword, eSizeSHABit);
 
 	return HashResult;
 }
@@ -1121,6 +1113,7 @@ void __fastcall ProcessFilesNames()
 	enSizeSHABit eSizeSHABit=enSizeSHABit_256;
 	enSizeKey eSizeKey=enSizeKey_128;
 	SYSTEMTIME st;
+	bool bSuccess=false; // Sukces lub jego brak podczas szyfrowania, lub deszyfrowania
 
 	GetLocalTime(&st);
 
@@ -1133,7 +1126,11 @@ void __fastcall ProcessFilesNames()
 		{eSizeSHABit = enSizeSHABit_256; eSizeKey = enSizeKey_128;}
 	else if(SendMessage(GLOBAL_HWND_RGROUP_AES256, BM_GETCHECK, 0, 0) == BST_CHECKED)
 		{eSizeSHABit = enSizeSHABit_512; eSizeKey = enSizeKey_256;}
-	AESResult HashResult = CreateHash(eSizeSHABit); // Mieszanie hasła.
+	GsStoreData gsHashResult = CreateHash(eSizeSHABit); // Mieszanie hasła.
+
+	// Typ AES, uproszczony, lub profesionalny. //[13-12-2025]
+	GLOBAL_TYPE_AES_PROFF = SendMessage(GLOBAL_HWND_RGROUP_AESPROFF, BM_GETCHECK, 0, 0) == BST_CHECKED;
+
 	auto CleanupRunProc = [&]()
 	/**
 		OPIS METOD(FUNKCJI): Funkcja zwalniająca zarezerwowane zasoby podczas błędu
@@ -1141,10 +1138,10 @@ void __fastcall ProcessFilesNames()
 	*/
 	{
 		// zwolnienie pamięci
-		if(HashResult.pbData) {HeapFree(GetProcessHeap(), 0, HashResult.pbData); HashResult.pbData = nullptr;}
+		//if(gsHashResult.pbData) {HeapFree(GetProcessHeap(), 0, gsHashResult.pbData); gsHashResult.pbData = nullptr;}
 	};
 
-	if (HashResult.cbDataLength == 0)
+	if (gsHashResult.DDataLen == 0)
 	{
 		MessageBox(nullptr, TEXT("Błąd funkcji GsAESComputeSHAHash()!"), TEXT("Błąd"), MB_ICONERROR);
 		StringCchPrintf(szTextInfos, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Błąd funkcji tworzącej skrót do hasła!"),
@@ -1155,28 +1152,49 @@ void __fastcall ProcessFilesNames()
 	}
 	if(StrRStrI(szInputFilePath, nullptr, GLOBAL_CRYPT_EXT))
 	// Wyszukanie dodatku do rozszerzenia GLOBAL_CRYPTEXT
+	// Proces odszyfrowywania
 	{
-		StringCchPrintf(szTextInfos, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Odszyfrowywuje plik: \"%s\""),
-			st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, szInputFilePath);
-		//if(!GsAESBasic::GsAESBasicDecryptFile(HashResult, szInputFilePath, szOutputFilePath, eSizeKey))
-		if(!GsAESDecryptFile(HashResult, szInputFilePath, szOutputFilePath, eSizeKey))
+		if(GLOBAL_TYPE_AES_PROFF) // [14-12-2025]
 		{
-			MessageBox(nullptr, TEXT("Błąd metody GsAESDecryptFile()!"), TEXT("Błąd"), MB_ICONERROR);
+			bSuccess = GsAESPro::GsAESProDecryptFile(gsHashResult, szInputFilePath, szOutputFilePath, eSizeKey);
+			StringCchPrintf(szTextInfos, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Odszyfrowywuje metodą profesjonalną, plik: \"%s\""),
+			st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, szInputFilePath);
+		}
+		else
+		{
+			bSuccess = GsAESBasic::GsAESBasicDecryptFile(gsHashResult, szInputFilePath, szOutputFilePath, eSizeKey);
+			StringCchPrintf(szTextInfos, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Odszyfrowywuje metodą uproszczoną, plik: \"%s\""),
+			st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, szInputFilePath);
+		} //[13-12-2025]
+		if(!bSuccess)
+		{
+			MessageBox(nullptr, TEXT("Błąd metody GsAESBasic::GsAESBasicDecryptFile() lub GsAESPro::GsAESProDecryptFile()!"), TEXT("Błąd"), MB_ICONERROR);
 			StringCchPrintf(szTextInfos, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Błąd odszyfrowywania pliku: \"%s\""),
 				st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, szInputFilePath);
 			AppendMemoInfos(szTextInfos);
 			CleanupRunProc();
+
 			return;
 		}
 	}
 	else
+	// Proces szyfrowania.
 	{
-		StringCchPrintf(szTextInfos, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Szyfruje plik: \"%s\""),
-			st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, szInputFilePath);
-		//if(!GsAESBasic::GsAESBasicCryptFile(HashResult, szInputFilePath, szOutputFilePath, eSizeKey))
-		if(!GsAESCryptFile(HashResult, szInputFilePath, szOutputFilePath, eSizeKey))
+		if(GLOBAL_TYPE_AES_PROFF) // [14-12-2025]
 		{
-			MessageBox(nullptr, TEXT("Błąd metody GsAESCryptFile()!"), TEXT("Błąd"), MB_ICONERROR);
+			bSuccess = GsAESPro::GsAESProCryptFile(gsHashResult, szInputFilePath, szOutputFilePath, eSizeKey);
+			StringCchPrintf(szTextInfos, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Szyfruje metodą profesjonalną, plik: \"%s\""),
+			st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, szInputFilePath);
+		}
+		else
+		{
+			bSuccess = GsAESBasic::GsAESBasicCryptFile(gsHashResult, szInputFilePath, szOutputFilePath, eSizeKey);
+			StringCchPrintf(szTextInfos, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Szyfruje metodą uproszczoną, plik: \"%s\""),
+			st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, szInputFilePath);
+		} //[13-12-2025]
+		if(!bSuccess)
+		{
+			MessageBox(nullptr, TEXT("Błąd metody GsAESBasic::GsAESBasicCryptFile() lub GsAESPro::GsAESProCryptFile!"), TEXT("Błąd"), MB_ICONERROR);
 			StringCchPrintf(szTextInfos, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Błąd szyfrowania pliku: \"%s\""),
 				st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, szInputFilePath);
 			AppendMemoInfos(szTextInfos);
@@ -1192,7 +1210,7 @@ void __fastcall ProcessFilesNames()
 	CleanupRunProc();
 }
 //---------------------------------------------------------------------------
-enTypeProcess __fastcall ProcessExtendFileName(LPCWSTR lpszFileName, bool bIsDirProcess)
+enTypeProcess __fastcall ProcessExtendFileName(LPCWSTR lpcszFileName, const bool cbIsDirProcess)
 /**
 	OPIS METOD(FUNKCJI): Funkcja sprawdza rozszerzenie pliku "lpszFileName” i zależnie od jej wyniku ustawia
 											 plik wejściowy i wyjściowy, dostosowywując ich rozszerzenie.
@@ -1208,22 +1226,22 @@ enTypeProcess __fastcall ProcessExtendFileName(LPCWSTR lpszFileName, bool bIsDir
 	OPIS WYNIKU METODY(FUNKCJI): enTypeProcess-typ akcji.
 */
 {
-	PCWSTR pExt=nullptr;
-	size_t sLenInputFile=0, sLenCryptText=0;
+	PCWSTR pcszExt=nullptr;
+	size_t InputFileLen=0, CryptTextLen=0;
 	enTypeProcess eTypeProcess=enTypeProcess_Crypt;
 
-	StringCchLength(GLOBAL_CRYPT_EXT, MAX_PATH, &sLenCryptText);
+	StringCchLength(GLOBAL_CRYPT_EXT, MAX_PATH, &CryptTextLen);
 	SecureZeroMemory(GLOBAL_INPUTFILE, sizeof(GLOBAL_INPUTFILE));
 
-	StringCchCopy(GLOBAL_INPUTFILE, MAX_PATH, lpszFileName); // Skopiowanie wybranej ścieżki do globalnej ścieżki
-	PathCchFindExtension(GLOBAL_INPUTFILE, MAX_PATH, &pExt); // Wyodrębnienie rozszerzenia
+	StringCchCopy(GLOBAL_INPUTFILE, MAX_PATH, lpcszFileName); // Skopiowanie wybranej ścieżki do globalnej ścieżki
+	PathCchFindExtension(GLOBAL_INPUTFILE, MAX_PATH, &pcszExt); // Wyodrębnienie rozszerzenia
 
-	if(StrRStrI(pExt, nullptr, GLOBAL_CRYPT_EXT)) // Wyszukanie dodatku do rozszerzenia GLOBAL_CRYPTEXT
+	if(StrRStrI(pcszExt, nullptr, GLOBAL_CRYPT_EXT)) // Wyszukanie dodatku do rozszerzenia GLOBAL_CRYPTEXT
 	// Istnieje rozszerzenie GLOBAL_CRYPT_EXT. Deszyfrowanie.
 	{
-		StringCchLength(lpszFileName, MAX_PATH, &sLenInputFile); // Długość ścieżki pliku wejściowego
+		StringCchLength(lpcszFileName, MAX_PATH, &InputFileLen); // Długość ścieżki pliku wejściowego
 		// Skopiowanie ścieżki bez GLOBAL_CRYPT_EXT
-		StringCchCopyN(GLOBAL_OUTPUTFILE, MAX_PATH, lpszFileName, sLenInputFile - sLenCryptText);
+		StringCchCopyN(GLOBAL_OUTPUTFILE, MAX_PATH, lpcszFileName, InputFileLen - CryptTextLen);
 		eTypeProcess = enTypeProcess_Decrypt;
 	}
 	else // Brak rozszerzenia GLOBAL_CRYPT_EXT. Szyfrowanie.
@@ -1233,7 +1251,7 @@ enTypeProcess __fastcall ProcessExtendFileName(LPCWSTR lpszFileName, bool bIsDir
 		StringCchCat(GLOBAL_OUTPUTFILE, MAX_PATH, GLOBAL_CRYPT_EXT);
 		eTypeProcess = enTypeProcess_Crypt;
 	}
-	if(!bIsDirProcess)
+	if(!cbIsDirProcess)
 	{
 		SetWindowText(GLOBAL_PATH_HWND_EDITINPUT, GLOBAL_INPUTFILE);
 		SetWindowText(GLOBAL_PATH_HWND_EDITOUTPUT, GLOBAL_OUTPUTFILE);
@@ -1242,7 +1260,7 @@ enTypeProcess __fastcall ProcessExtendFileName(LPCWSTR lpszFileName, bool bIsDir
 	return eTypeProcess;
 }
 //---------------------------------------------------------------------------
-void __fastcall ProcessDirectoryName(LPCWSTR lpszDirectoryName)
+void __fastcall ProcessDirectoryName(LPCWSTR lpcszDirectoryName)
 /**
 	OPIS METOD(FUNKCJI): Funkcja listuje i szyfruje lub deszyfruje całą zawartość katalogu lpszDirectoryName.
 	OPIS ARGUMENTÓW:
@@ -1253,29 +1271,32 @@ void __fastcall ProcessDirectoryName(LPCWSTR lpszDirectoryName)
 	bool bIsSucces=false;
 	WIN32_FIND_DATA ffd;
 	HANDLE hFind = INVALID_HANDLE_VALUE;
-	TCHAR lpszFileMask[MAX_PATH],
-				lpszFileResult[MAX_PATH],
-				lpszInfosText[MAX_PATH];
+	TCHAR szFileMask[MAX_PATH],
+				szFileResult[MAX_PATH],
+				szInfosText[MAX_PATH];
 	enSizeSHABit eSizeSHABit=enSizeSHABit_256;
 	enSizeKey eSizeKey=enSizeKey_128;
 	enTypeProcess eTypeProcess=enTypeProcess_Crypt;
 	SYSTEMTIME st;
 
-	StringCchPrintf(lpszInfosText, MAX_PATH, TEXT("Czy chcesz przeprowadzić operacje na zawartości katalogu: \"%s\""),
-		lpszDirectoryName);
-	if(MessageBox(nullptr, lpszInfosText, TEXT("Zapytanie aplikacji"), MB_OKCANCEL| MB_ICONQUESTION | MB_TASKMODAL) != IDOK)
+	// Typ AES, uproszczony, lub profesionalny. //[13-12-2025] // [14-12-2025]
+	GLOBAL_TYPE_AES_PROFF = SendMessage(GLOBAL_HWND_RGROUP_AESPROFF, BM_GETCHECK, 0, 0) == BST_CHECKED;
+
+	StringCchPrintf(szInfosText, MAX_PATH, TEXT("Czy chcesz przeprowadzić operacje na zawartości katalogu: \"%s\""),
+		lpcszDirectoryName);
+	if(MessageBox(nullptr, szInfosText, TEXT("Zapytanie aplikacji"), MB_OKCANCEL| MB_ICONQUESTION | MB_TASKMODAL) != IDOK)
 		{return;}
 
 	GetLocalTime(&st);
 
-	StringCchCopy(lpszFileMask, MAX_PATH, lpszDirectoryName);
-	StringCchCat(lpszFileMask, MAX_PATH, TEXT("\\*.*"));
+	StringCchCopy(szFileMask, MAX_PATH, lpcszDirectoryName);
+	StringCchCat(szFileMask, MAX_PATH, TEXT("\\*.*"));
 
-	StringCchPrintf(lpszInfosText, MAX_PATH, TEXT(">>>>>> Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d >>>>>> Przeprowadzam operacje na katalogu: \"%s\" <<<<<<"),
-		st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, lpszDirectoryName);
+	StringCchPrintf(szInfosText, MAX_PATH, TEXT(">>>>>> Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d >>>>>> Przeprowadzam operacje na katalogu: \"%s\" <<<<<<"),
+		st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, lpcszDirectoryName);
 	// Wyłącz odświeżanie.
 	SendMessage(GLOBAL_HWND_HMEMORYTEXTINFOS, WM_SETREDRAW, FALSE, 0);
-	AppendMemoInfos(lpszInfosText);
+	AppendMemoInfos(szInfosText);
 
 	// Selekcja typu szyfrowania
 	if(SendMessage(GLOBAL_HWND_RGROUP_AES128, BM_GETCHECK, 0, 0) == BST_CHECKED)
@@ -1283,7 +1304,7 @@ void __fastcall ProcessDirectoryName(LPCWSTR lpszDirectoryName)
 	else if(SendMessage(GLOBAL_HWND_RGROUP_AES256, BM_GETCHECK, 0, 0) == BST_CHECKED)
 		{eSizeSHABit = enSizeSHABit_512; eSizeKey = enSizeKey_256;}
 
-	AESResult HashResult = CreateHash(eSizeSHABit); // Mieszanie hasła.
+	GsStoreData gsHashResult = CreateHash(eSizeSHABit); // Mieszanie hasła.
 
 	auto CleanupDirProc = [&]()
 	/**
@@ -1293,17 +1314,17 @@ void __fastcall ProcessDirectoryName(LPCWSTR lpszDirectoryName)
 	{
 		if(hFind) {FindClose(hFind); hFind = nullptr;}
 		// Zwolnienie pamięci
-		if(HashResult.pbData) {HeapFree(GetProcessHeap(), 0, HashResult.pbData); HashResult.pbData = nullptr;}
+		if(gsHashResult.pBData) {HeapFree(GetProcessHeap(), 0, gsHashResult.pBData); gsHashResult.pBData = nullptr;}
 	};
 
-	if(HashResult.cbDataLength == 0)
+	if(gsHashResult.DDataLen == 0)
 	{
 		MessageBox(nullptr, TEXT("Błąd funkcji GsAESComputeSHAHash()!"), TEXT("Błąd"), MB_ICONERROR);
 		CleanupDirProc();
 		return;
 	}
 
-	hFind = FindFirstFile(lpszFileMask, &ffd);
+	hFind = FindFirstFile(szFileMask, &ffd);
 	if(hFind == INVALID_HANDLE_VALUE)
 	{
 		MessageBox(nullptr, TEXT("Błąd otwarcia katalogu!"), TEXT("Błąd"), MB_ICONERROR);
@@ -1314,47 +1335,55 @@ void __fastcall ProcessDirectoryName(LPCWSTR lpszDirectoryName)
 		// Pomijamy "." i ".."
 		if (!(ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
 		{
-			StringCchCopy(lpszFileResult, MAX_PATH, lpszDirectoryName);
-			StringCchCat(lpszFileResult, MAX_PATH, TEXT("\\"));
-			StringCchCat(lpszFileResult, MAX_PATH, ffd.cFileName);
-			eTypeProcess = ProcessExtendFileName(lpszFileResult, true);
+			StringCchCopy(szFileResult, MAX_PATH, lpcszDirectoryName);
+			StringCchCat(szFileResult, MAX_PATH, TEXT("\\"));
+			StringCchCat(szFileResult, MAX_PATH, ffd.cFileName);
+			eTypeProcess = ProcessExtendFileName(szFileResult, true);
 
 			if(eTypeProcess == enTypeProcess_Crypt)
 			// Szyfrowanie
 			{
-				//bIsSucces = GsAESBasic::GsAESBasicCryptFile(HashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);
-				bIsSucces = GsAESCryptFile(HashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);
+				// [14-12-2025]
+				if(GLOBAL_TYPE_AES_PROFF) {bIsSucces = GsAESPro::GsAESProCryptFile(gsHashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);}
+				else {bIsSucces = GsAESBasic::GsAESBasicCryptFile(gsHashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);}
+
 				if(!bIsSucces)
 				{
-					MessageBox(nullptr, TEXT("Błąd metody GsAESBasic::GsAESCryptFile()!"), TEXT("Błąd"), MB_ICONERROR);
-					StringCchPrintf(lpszInfosText, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Błąd szyfrowania pliku: \"%s\""),
+					MessageBox(nullptr, TEXT("Błąd metody GsAESBasic::GsAESCryptFile() lub GsAESBasic::GsAESBasicCryptFile!"), TEXT("Błąd"), MB_ICONERROR);
+					StringCchPrintf(szInfosText, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Błąd szyfrowania pliku: \"%s\""),
 						st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, ffd.cFileName);
 				}
 				else
 				{
-					StringCchPrintf(lpszInfosText, MAX_PATH, TEXT("SZYFROWANIE: -> \"%s\" >>>>>> \"%s\""),
+					if(GLOBAL_TYPE_AES_PROFF) StringCchPrintf(szInfosText, MAX_PATH, TEXT("SZYFROWANIE PROFESJONALNE: -> \"%s\" >>>>>> \"%s\""),
+						GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE);
+					else StringCchPrintf(szInfosText, MAX_PATH, TEXT("SZYFROWANIE UPROSZCZONE: -> \"%s\" >>>>>> \"%s\""),
 						GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE);
 				}
 			}
 			else if(eTypeProcess == enTypeProcess_Decrypt)
-			// Odszyfrowanie
+			// Odszyfrowywanie
 			{
-				//bIsSucces = GsAESBasic::GsAESBasicDecryptFile(HashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);
-				bIsSucces = GsAESDecryptFile(HashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);
+				// [14-12-2025]
+				if(GLOBAL_TYPE_AES_PROFF) {bIsSucces = GsAESPro::GsAESProDecryptFile(gsHashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);}
+				else {bIsSucces = GsAESBasic::GsAESBasicDecryptFile(gsHashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);}
+
 				if(!bIsSucces)
 				{
-					MessageBox(nullptr, TEXT("Błąd metody GsAESBasic::GsAESDecryptFile()!"), TEXT("Błąd"), MB_ICONERROR);
-					StringCchPrintf(lpszInfosText, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Błąd deszyfrowania pliku: \"%s\""),
+					MessageBox(nullptr, TEXT("Błąd metody GsAESBasic::GsAESDecryptFile() lub GsAESPro::GsAESProDecryptFile()!"), TEXT("Błąd"), MB_ICONERROR);
+					StringCchPrintf(szInfosText, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Błąd deszyfrowania pliku: \"%s\""),
 						st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, ffd.cFileName);
 				}
 				else
 				{
-					StringCchPrintf(lpszInfosText, MAX_PATH, TEXT("ODSZYFROWYWANIE: -> \"%s\" >>>>>> \"%s\""),
+					if(GLOBAL_TYPE_AES_PROFF) StringCchPrintf(szInfosText, MAX_PATH, TEXT("ODSZYFROWYWANIE PROFESJONALNE: -> \"%s\" >>>>>> \"%s\""),
+						GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE);
+					else StringCchPrintf(szInfosText, MAX_PATH, TEXT("ODSZYFROWYWANIE UPROSZCZONE: -> \"%s\" >>>>>> \"%s\""),
 						GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE);
 				}
 			}
 
-			AppendMemoInfos(lpszInfosText);
+			AppendMemoInfos(szInfosText);
 			// Kasowanie pliku wejściowego.
 			if(!DeleteFile(GLOBAL_INPUTFILE))
 			{
@@ -1400,11 +1429,11 @@ bool __fastcall SaveHistoryFile()
 	OPIS WYNIKU METODY(FUNKCJI): true, gdy istnieją wszystkie zawartości.
 */
 {
-	int len = 0;
-	LPWSTR pBuffer = nullptr;
+	int iLen = 0;
+	LPWSTR lpszBuffer = nullptr;
 	HANDLE hFile = INVALID_HANDLE_VALUE;
-	DWORD dwWritten=0;
-	LPSTR pUtf8 = nullptr;
+	DWORD DWritten=0;
+	LPSTR lpszUtf8 = nullptr;
 	TCHAR szPathIniFile[MAX_PATH];
 
 	auto CleanupSHistory = [&]()
@@ -1413,35 +1442,35 @@ bool __fastcall SaveHistoryFile()
 												 lub zakończenia nadrzędnej funkcji typu lambda
 	*/
 	{
-		if (hFile != INVALID_HANDLE_VALUE) CloseHandle(hFile);
-		if(pBuffer) {HeapFree(GetProcessHeap(), 0, pBuffer); pBuffer = nullptr;}
-		if (pUtf8) {HeapFree(GetProcessHeap(), 0, pUtf8); pUtf8 = nullptr;}
+		if(hFile != INVALID_HANDLE_VALUE) CloseHandle(hFile);
+		if(lpszBuffer) {HeapFree(GetProcessHeap(), 0, lpszBuffer); lpszBuffer = nullptr;}
+		if(lpszUtf8) {HeapFree(GetProcessHeap(), 0, lpszUtf8); lpszUtf8 = nullptr;}
 	};
 	// Tworzenie ścieżki dostępu do pliku ini
 	HRESULT hr = PathCchCombine(szPathIniFile, MAX_PATH, GLOBAL_GETEXEDIR, GLOBAL_HISTORY_FILE);
 	if(!SUCCEEDED(hr)) return false;
-	len = GetWindowTextLength(GLOBAL_HWND_HMEMORYTEXTINFOS);
-	if (len <= 0) return false;
+	iLen = GetWindowTextLength(GLOBAL_HWND_HMEMORYTEXTINFOS);
+	if (iLen <= 0) return false;
 	// Alokuj bufor (len + 1 na terminator)
-	pBuffer = static_cast<LPWSTR>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, (len + 1) * sizeof(WCHAR)));
-	if (!pBuffer) {CleanupSHistory(); return false;}
+	lpszBuffer = static_cast<LPWSTR>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, (iLen + 1) * sizeof(WCHAR)));
+	if (!lpszBuffer) {CleanupSHistory(); return false;}
 	// Pobierz tekst.
-	GetWindowText(GLOBAL_HWND_HMEMORYTEXTINFOS, pBuffer, len + 1);
+	GetWindowText(GLOBAL_HWND_HMEMORYTEXTINFOS, lpszBuffer, iLen + 1);
 	// Oblicz rozmiar UTF-8.
-	int utf8Size = WideCharToMultiByte(CP_UTF8, 0, pBuffer, -1, nullptr, 0,
+	const int ciutf8Size = WideCharToMultiByte(CP_UTF8, 0, lpszBuffer, -1, nullptr, 0,
 		nullptr, nullptr);
-	if (utf8Size <= 0) {CleanupSHistory(); return false;}
+	if (ciutf8Size <= 0) {CleanupSHistory(); return false;}
 	// Alokuj bufor UTF-8
-	pUtf8 = static_cast<LPSTR>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, utf8Size));
-	if (!pUtf8) {CleanupSHistory(); return false;}
+	lpszUtf8 = static_cast<LPSTR>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, ciutf8Size));
+	if (!lpszUtf8) {CleanupSHistory(); return false;}
 	// Konwersja do UTF-8
-	WideCharToMultiByte(CP_UTF8, 0, pBuffer, -1, pUtf8, utf8Size, nullptr, nullptr);
+	WideCharToMultiByte(CP_UTF8, 0, lpszBuffer, -1, lpszUtf8, ciutf8Size, nullptr, nullptr);
 	// Otwórz plik do zapisu.
 	hFile = CreateFile(szPathIniFile, GENERIC_WRITE, 0, nullptr,
 		CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (hFile == INVALID_HANDLE_VALUE) {CleanupSHistory(); return false;}
 	// Zapisz tekst (UTF-16LE).
-	if (!WriteFile(hFile, pUtf8, utf8Size - 1, &dwWritten, nullptr)) {CleanupSHistory(); return false;}
+	if (!WriteFile(hFile, lpszUtf8, ciutf8Size - 1, &DWritten, nullptr)) {CleanupSHistory(); return false;}
 
 	CleanupSHistory();
 
@@ -1460,13 +1489,13 @@ bool __fastcall LoadHistoryFile()
 	//BOOL bResult=FALSE;
 	DWORD dwSize=0;
 	DWORD dwRead=0;
-	LPBYTE pBuffer=nullptr;
+	LPBYTE pLBuffer=nullptr;
 	TCHAR szPathIniFile[MAX_PATH];
 
 	auto CleanupLHistory = [&]()
 	{
 		if(hFile != INVALID_HANDLE_VALUE) CloseHandle(hFile);
-		if(pBuffer) {HeapFree(GetProcessHeap(), 0, pBuffer); pBuffer = nullptr;}
+		if(pLBuffer) {HeapFree(GetProcessHeap(), 0, pLBuffer); pLBuffer = nullptr;}
 	};
 	// Tworzenie ścieżki dostępu do pliku ini
 	HRESULT hr = PathCchCombine(szPathIniFile, MAX_PATH, GLOBAL_GETEXEDIR, GLOBAL_HISTORY_FILE);
@@ -1483,15 +1512,15 @@ bool __fastcall LoadHistoryFile()
 	dwSize = static_cast<DWORD>(liSize.QuadPart);
 
 	// Alokuj bufor
-	pBuffer = static_cast<LPBYTE>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, dwSize + sizeof(WCHAR)));
-	if(!pBuffer) {CleanupLHistory(); return false;}
+	pLBuffer = static_cast<LPBYTE>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, dwSize + sizeof(WCHAR)));
+	if(!pLBuffer) {CleanupLHistory(); return false;}
 
 	// Wczytaj dane.
-	if(!ReadFile(hFile, pBuffer, dwSize, &dwRead, nullptr)) {CleanupLHistory(); return false;}
+	if(!ReadFile(hFile, pLBuffer, dwSize, &dwRead, nullptr)) {CleanupLHistory(); return false;}
 	// Bufor ANSI/UTF-8 -> Unicode
-	const int wideLen = MultiByteToWideChar(CP_UTF8, 0, reinterpret_cast<LPCSTR>(pBuffer), dwRead, nullptr, 0);
+	const int wideLen = MultiByteToWideChar(CP_UTF8, 0, reinterpret_cast<LPCSTR>(pLBuffer), dwRead, nullptr, 0);
 	LPWSTR pWide = static_cast<LPWSTR>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, (wideLen + 1) * sizeof(WCHAR)));
-	MultiByteToWideChar(CP_UTF8, 0, reinterpret_cast<LPCSTR>(pBuffer), dwRead, pWide, wideLen);
+	MultiByteToWideChar(CP_UTF8, 0, reinterpret_cast<LPCSTR>(pLBuffer), dwRead, pWide, wideLen);
 	pWide[wideLen] = L'\0';
 	// Ustaw tekst w kontrolce EDIT.
 	SetWindowTextW(GLOBAL_HWND_HMEMORYTEXTINFOS, pWide);
@@ -1500,7 +1529,7 @@ bool __fastcall LoadHistoryFile()
 	return true;
 }
 //---------------------------------------------------------------------------
-void __fastcall AppendMemoInfos(LPCWSTR lpszTextAdd)
+void __fastcall AppendMemoInfos(LPCWSTR lpcszTextAdd)
 /**
 	OPIS METOD(FUNKCJI): Dodanie nowej lini do histori.
 	OPIS ARGUMENTÓW:
@@ -1509,15 +1538,15 @@ void __fastcall AppendMemoInfos(LPCWSTR lpszTextAdd)
 */
 {
 	// Pobierz bieżącą długość tekstu.
-	int len = GetWindowTextLength(GLOBAL_HWND_HMEMORYTEXTINFOS);
+	const int ciLen = GetWindowTextLength(GLOBAL_HWND_HMEMORYTEXTINFOS);
 	// Ustaw kursor na końcu.
-	SendMessageW(GLOBAL_HWND_HMEMORYTEXTINFOS, EM_SETSEL, static_cast<WPARAM>(len), static_cast<LPARAM>(len));
+	SendMessageW(GLOBAL_HWND_HMEMORYTEXTINFOS, EM_SETSEL, static_cast<WPARAM>(ciLen), static_cast<LPARAM>(ciLen));
 	// Dodaj tekst + nową linię.
-	SendMessageW(GLOBAL_HWND_HMEMORYTEXTINFOS, EM_REPLACESEL, FALSE, reinterpret_cast<LPARAM>(lpszTextAdd));
+	SendMessageW(GLOBAL_HWND_HMEMORYTEXTINFOS, EM_REPLACESEL, FALSE, reinterpret_cast<LPARAM>(lpcszTextAdd));
 	SendMessageW(GLOBAL_HWND_HMEMORYTEXTINFOS, EM_REPLACESEL, FALSE, reinterpret_cast<LPARAM>(TEXT("\r\n")));
 }
 //---------------------------------------------------------------------------
-void __fastcall DrawButtonViewPass(HWND hwnd, const LPDRAWITEMSTRUCT dis)
+void __fastcall DrawButtonViewPass(const HWND cHwnd, const LPDRAWITEMSTRUCT pLdis)
 /**
 	OPIS METOD(FUNKCJI): Rysowanie kontrolek.
 	OPIS ARGUMENTÓW:
@@ -1525,25 +1554,25 @@ void __fastcall DrawButtonViewPass(HWND hwnd, const LPDRAWITEMSTRUCT dis)
 	OPIS WYNIKU METODY(FUNKCJI):
 */
 {
-	HDC hdc=dis->hDC;
-	RECT rc=dis->rcItem;
-	int width=rc.right - rc.left,
-		height=rc.bottom - rc.top;
+	const HDC hdc=pLdis->hDC;
+	const RECT rc=pLdis->rcItem;
+	const int iWidth=rc.right - rc.left,
+		iHeight=rc.bottom - rc.top;
 	COLORREF textColor=RGB(0, 0, 0);
 
 	// Utwórz bufor w pamięci.
-	HDC hMemDC = CreateCompatibleDC(hdc); // Nowy kontekst grafiki.
-	HBITMAP hBmp = CreateCompatibleBitmap(hdc, width, height); // Nowa kompatybilna z aktualną bitmapą.
+	const HDC chMemDC = CreateCompatibleDC(hdc); // Nowy kontekst grafiki.
+	const HBITMAP chBmp = CreateCompatibleBitmap(hdc, iWidth, iHeight); // Nowa kompatybilna z aktualną bitmapą.
 	// Podmiana bitmapy i dołączenie jej do nowego konteksty grafiki.
-	HBITMAP hOldBmp = static_cast<HBITMAP>(SelectObject(hMemDC, hBmp));
+	const HBITMAP chOldBmp = static_cast<HBITMAP>(SelectObject(chMemDC, chBmp));
 	// Kolor tła zależny od stanu
 	COLORREF bgColor;
-	if(dis->itemState & ODS_DISABLED)
+	if(pLdis->itemState & ODS_DISABLED)
 	{
 		bgColor = RGB(220,220,220); // wyłączony
 		textColor = RGB(160,160,160); // wyszarzony.
 	}
-	else if(dis->itemState & ODS_SELECTED)
+	else if(pLdis->itemState & ODS_SELECTED)
 	{
 		bgColor = RGB(200,200,200); // kliknięty
 	}
@@ -1559,48 +1588,48 @@ void __fastcall DrawButtonViewPass(HWND hwnd, const LPDRAWITEMSTRUCT dis)
 
 	// Tło płaskie – zależne od stanu toggle
 	HBRUSH hBrush = CreateSolidBrush(bgColor);
-	FillRect(hMemDC, &rc, hBrush);
+	FillRect(chMemDC, &rc, hBrush);
 	DeleteObject(hBrush);
 
 	// Ramka płaska
-	FrameRect(hMemDC, &rc, GetSysColorBrush(COLOR_WINDOWFRAME));
+	FrameRect(chMemDC, &rc, GetSysColorBrush(COLOR_WINDOWFRAME));
 
 	if(GLOBAL_HICON_VIEWPASS)
 	{
 		// Ikona 32×32 przy lewej krawędzi
-		int iconX = dis->rcItem.left + 4;
-		int iconY = dis->rcItem.top + (dis->rcItem.bottom - dis->rcItem.top - 32) / 2;
-		DrawIconEx(hMemDC, iconX, iconY, GLOBAL_HICON_VIEWPASS, 32, 32, 0,
+		const int ciconX = pLdis->rcItem.left + 4;
+		const int ciconY = pLdis->rcItem.top + (pLdis->rcItem.bottom - pLdis->rcItem.top - 32) / 2;
+		DrawIconEx(chMemDC, ciconX, ciconY, GLOBAL_HICON_VIEWPASS, 32, 32, 0,
 			nullptr, DI_NORMAL);
 	}
 
 	// Odczytanie tekstu z przycisku
-	TCHAR textButton[256];
-	GetWindowText(dis->hwndItem, textButton, ARRAYSIZE(textButton));
+	TCHAR szTextButton[256];
+	GetWindowText(pLdis->hwndItem, szTextButton, ARRAYSIZE(szTextButton));
 
 	// Tekst po prawej stronie ikony
-	SetBkMode(hMemDC, TRANSPARENT);
-	SetTextColor(hMemDC, textColor);//RGB(0, 0, 0));
+	SetBkMode(chMemDC, TRANSPARENT);
+	SetTextColor(chMemDC, textColor);//RGB(0, 0, 0));
 
-	RECT rcText = dis->rcItem;
+	RECT rcText = pLdis->rcItem;
 	rcText.left += 32 + 8; // przesunięcie za ikonę
-	HFONT hOldFont = static_cast<HFONT>(SelectObject(hMemDC, GLOBAL_HFONT));
-	DrawText(hMemDC, textButton, -1, &rcText, DT_SINGLELINE | DT_LEFT | DT_VCENTER);
+	const HFONT chOldFont = static_cast<HFONT>(SelectObject(chMemDC, GLOBAL_HFONT));
+	DrawText(chMemDC, szTextButton, -1, &rcText, DT_SINGLELINE | DT_LEFT | DT_VCENTER);
 
 	// Fokus
-	if(dis->itemState & ODS_FOCUS) DrawFocusRect(hMemDC, &rc);
-	SelectObject(hMemDC, hOldFont); // Przywrócenie starej czcionki
+	if(pLdis->itemState & ODS_FOCUS) DrawFocusRect(chMemDC, &rc);
+	SelectObject(chMemDC, chOldFont); // Przywrócenie starej czcionki
 
 	// Skopiuj bufor na ekran
-	BitBlt(hdc, rc.left, rc.top, width, height, hMemDC, rc.left, rc.top, SRCCOPY);
+	BitBlt(hdc, rc.left, rc.top, iWidth, iHeight, chMemDC, rc.left, rc.top, SRCCOPY);
 	// Sprzątanie
-	SelectObject(hMemDC, hOldBmp);
-	DeleteObject(hBmp);
-	DeleteDC(hMemDC);
+	SelectObject(chMemDC, chOldBmp);
+	DeleteObject(chBmp);
+	DeleteDC(chMemDC);
 }
 //---------------------------------------------------------------------------
-LRESULT CALLBACK ButtonViewPassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
-							UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
+LRESULT CALLBACK ButtonViewPassProc(const HWND cHwnd, const UINT cUIMsg, const WPARAM cwParam, const LPARAM cLParam,
+							const UINT_PTR cUIpSubclass, DWORD_PTR DRefData)
 /**
 	OPIS METOD(FUNKCJI): Rysowanie kontrolek.
 	OPIS ARGUMENTÓW:
@@ -1608,7 +1637,7 @@ LRESULT CALLBACK ButtonViewPassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
 	OPIS WYNIKU METODY(FUNKCJI):
 */
 {
-	switch(msg)
+	switch(cUIMsg)
 	{
 		case WM_MOUSEMOVE:
 		{
@@ -1616,7 +1645,7 @@ LRESULT CALLBACK ButtonViewPassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
 			TRACKMOUSEEVENT tme;
 			tme.cbSize = sizeof(tme);
 			tme.dwFlags = TME_LEAVE;	 // chcemy dostać WM_MOUSELEAVE.
-			tme.hwndTrack = hwnd;
+			tme.hwndTrack = cHwnd;
 			TrackMouseEvent(&tme);
 
 			GLOBAL_HOVER = true;
@@ -1633,11 +1662,79 @@ LRESULT CALLBACK ButtonViewPassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
 			break;
 		//---
 		case WM_NCDESTROY:
-			RemoveWindowSubclass(hwnd, ButtonViewPassProc, uIdSubclass);
+			RemoveWindowSubclass(cHwnd, ButtonViewPassProc, cUIpSubclass);
 			break;
 		//---
 		default: break;
 	}
-	return DefSubclassProc(hwnd, msg, wParam, lParam);
+	return DefSubclassProc(cHwnd, cUIMsg, cwParam, cLParam);
+}
+//---------------------------------------------------------------------------
+void __fastcall ProcessCommandLine()
+/**
+	OPIS METOD(FUNKCJI): Praca z linią poleceń.
+	OPIS ARGUMENTÓW:
+	OPIS ZMIENNYCH:
+	OPIS WYNIKU METODY(FUNKCJI):
+*/
+{
+	// Pobierz pełną linię poleceń
+	const LPCWSTR lpcszcmdLine = GetCommandLine();
+	// Rozbij na argumenty
+	int iArgc;
+	LPWSTR* lpszMyargv = CommandLineToArgvW(lpcszcmdLine, &iArgc);
+
+	if(lpszMyargv)
+	{
+		for(int i=0; i<iArgc; i++)
+		{
+			if(i==1)
+			{
+				if(GsIsDirectory(lpszMyargv[i]))
+				{
+					SelectViewDir(lpszMyargv[i]);
+					// Trzeba ścieżkę katalogu skopiowac do GLOBAL_GETPROCESS_DIRECTORY
+					StringCchCopy(GLOBAL_GETPROCESS_DIRECTORY, MAX_PATH, lpszMyargv[i]);
+				}
+				else
+				{
+					SelectViewFile(lpszMyargv[i]);
+				}
+			}
+		}
+		LocalFree(lpszMyargv); // zwolnij pamięć
+	}
+}
+//---------------------------------------------------------------------------
+void __fastcall SelectViewFile(LPCWSTR lpcszSelectFile)
+/**
+	OPIS METOD(FUNKCJI): Wpisanie wybranego pliku roboczego.
+	OPIS ARGUMENTÓW:
+	OPIS ZMIENNYCH:
+	OPIS WYNIKU METODY(FUNKCJI):
+*/
+{
+	ProcessExtendFileName(lpcszSelectFile);
+
+	ShowWindow(GLOBAL_PATH_HWND_EDITDIR, SW_HIDE);
+	ShowWindow(GLOBAL_PATH_HWND_EDITINPUT, SW_SHOW);
+	ShowWindow(GLOBAL_PATH_HWND_EDITOUTPUT, SW_SHOW);
+	SetWindowText(GLOBAL_PATH_HWND_EDITDIR, TEXT(""));
+}
+//---------------------------------------------------------------------------
+void __fastcall SelectViewDir(LPCWSTR lpcszSelectDir)
+/**
+	OPIS METOD(FUNKCJI): Wpisanie wybranego katalogu roboczego.
+	OPIS ARGUMENTÓW:
+	OPIS ZMIENNYCH:
+	OPIS WYNIKU METODY(FUNKCJI):
+*/
+{
+	ShowWindow(GLOBAL_PATH_HWND_EDITDIR, SW_SHOW);
+	ShowWindow(GLOBAL_PATH_HWND_EDITINPUT, SW_HIDE);
+	ShowWindow(GLOBAL_PATH_HWND_EDITOUTPUT, SW_HIDE);
+	SetWindowText(GLOBAL_PATH_HWND_EDITDIR, lpcszSelectDir);
+	SetWindowText(GLOBAL_PATH_HWND_EDITINPUT, TEXT(""));
+	SetWindowText(GLOBAL_PATH_HWND_EDITOUTPUT, TEXT(""));
 }
 //---------------------------------------------------------------------------

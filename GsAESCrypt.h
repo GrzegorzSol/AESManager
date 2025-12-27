@@ -1,7 +1,7 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: GsAESCrypt.h
-// Data: 12.12.2025, 17:31
+// Data: 26.12.2025, 07:26
 
 //
 // Created by GrzegorzS on 17.10.2025.
@@ -9,35 +9,33 @@
 
 #ifndef GSAESCRYPT_H
 #define GSAESCRYPT_H
-#include <windows.h>
 
-#ifdef __AESBASIC__
-	#define GsAESCryptFile GsAESBasic::GsAESBasicCryptFile
-	#define GsAESDecryptFile GsAESBasic::GsAESBasicDecryptFile
-#else // #ifdef __AESBASIC__
-	 #define GsAESCryptFile GsAESPro::GsAESProCryptFile
-	 #define GsAESDecryptFile GsAESPro::GsAESProDecryptFile
-#endif //	#ifdef __AESBASIC__
+#include <windows.h>
+#include "GsWinLibrary.h"
 
 enum enSizeSHABit {enSizeSHABit_256 = 100, enSizeSHABit_512};
 enum enSizeKey {enSizeKey_128 = 128, enSizeKey_256 = 256};
 enum enTypeProcess {enTypeProcess_Crypt = 500, enTypeProcess_Decrypt};
-//---------------------------------------------------------------------------
-/// Struktura: AESResult
-/// Cel:			 Przechowuje wynik skrótu lub inny (bufor + długość)
-/// Uwagi:		 Bufor należy zwolnić przez HeapFree po użyciu
-//---------------------------------------------------------------------------
-struct AESResult
+// Stałe
+constexpr int CI_SIZEIV=16, // Wielkość IV
+							CI_SIZEHMAC=32, // Wielkość HMAC
+							CI_SIZESALT=16, // Wielkość Salt
+							CI_KEYLEN_128 = 16, CI_KEYLEN_256 = 32; // enSizeKey_128->CI_KEYLEN_128, enSizeKey_256->CI_KEYLEN_256
+constexpr ULONGLONG CUL_ITERATIONS=100000; // Stała; można wpisać do nagłówka w przyszłości, jeśli zamienialna.
+// Struktura nagłówka pliku zaszyfrowanego -> w konstrukcji
+constexpr BYTE CPB_VERSIONCRYPTBASIC = 0x01, CPB_VERSIONCRYPTPROFF = 0x10;
+struct GsAESHeader
 {
-	BYTE*	 pbData; // Wskaźnik na dane
-	DWORD	 cbDataLength; // Długość
+	BYTE Magic[4] = {'G', 'C', 'R', 'P'}; //"Magiczny" identyfikator.
+	BYTE Version = 0;	 // 0x01 - proste, 0x10 - zaawansowane.
+	BYTE bReserved[3] = {0, 0, 0}; // Na przyszłość
 };
 //============================== METODY POMOCNICZE ==========================
-extern __fastcall AESResult GsAESFunComputeSHAHash(LPCWSTR pszText, const enSizeSHABit enTypeHash=enSizeSHABit_256);
-extern __fastcall TCHAR *GsAESFunEncodeBase64(LPCWSTR pszPassword);
-extern __fastcall bool GsAESFunDecodeBase64(LPCWSTR pszPasswordBase64, TCHAR *pszOut, DWORD OutSize);
+extern __fastcall GsStoreData GsAESFunComputeSHAHash(LPCWSTR lpcszText, const enSizeSHABit enTypeHash=enSizeSHABit_256);
+extern __fastcall TCHAR *GsAESFunEncodeBase64(LPCWSTR lpcszPassword);
+extern __fastcall bool GsAESFunDecodeBase64(LPCWSTR lpcszPasswordBase64, TCHAR *pszOut, const DWORD cDOutSize);
 //---------------------------------------------------------------------------
-// Klas:	GsAESBasic.
+// Klasa:	GsAESBasic.
 // Cel:		Proste szyfrowanie pliku z KEY i IV, ale bez Salt.
 // Uwagi:	Przy niezmienionym haśle nagłówki zakodowanych plików są
 //				identyczne.
@@ -45,11 +43,11 @@ extern __fastcall bool GsAESFunDecodeBase64(LPCWSTR pszPasswordBase64, TCHAR *ps
 class GsAESBasic
 {
 	public:
-		static __fastcall bool GsAESBasicCryptFile(const AESResult &Hash, LPCWSTR lpszFileInput, LPCWSTR lpszFileOutput, enSizeKey enAESKey);
-		static __fastcall bool GsAESBasicDecryptFile(const AESResult &Hash, LPCWSTR lpszFileInput, LPCWSTR lpszFileOutput, enSizeKey enAESKey);
+		static __fastcall bool GsAESBasicCryptFile(const GsStoreData &gsHash, LPCWSTR lpcszFileInput, LPCWSTR lpcszFileOutput, const enSizeKey enAESKey);
+		static __fastcall bool GsAESBasicDecryptFile(const GsStoreData &gsHash, LPCWSTR lpcszFileInput, LPCWSTR lpcszFileOutput, const enSizeKey enAESKey);
 	private:
-		static __fastcall bool _GsAESBasicGenerateKeyAndIV_128(const AESResult &Hash, AESResult &Key, AESResult &IV);
-		static __fastcall bool _GsAESBasicGenerateKeyAndIV_256(const AESResult &Hash, AESResult &Key, AESResult &IV);
+		static __fastcall bool _GsAESBasicGenerateKeyAndIV_128(const GsStoreData &gsHash, GsStoreData &gsKey, GsStoreData &gsIV);
+		static __fastcall bool _GsAESBasicGenerateKeyAndIV_256(const GsStoreData &gsHash, GsStoreData &gsKey, GsStoreData &gsIV);
 };
 
 //---------------------------------------------------------------------------
@@ -60,10 +58,11 @@ class GsAESBasic
 class GsAESPro
 {
 	public:
-		static __fastcall bool GsAESProCryptFile(const AESResult &Hash, LPCWSTR lpszFileInput, LPCWSTR lpszFileOutput, enSizeKey enAESKey);
-		static __fastcall bool GsAESProDecryptFile(const AESResult &Hash, LPCWSTR lpszFileInput, LPCWSTR lpszFileOutput, enSizeKey enAESKey);
+		static __fastcall bool GsAESProCryptFile(const GsStoreData &gsHash, LPCWSTR lpcszFileInput, LPCWSTR lpcszFileOutput, const enSizeKey enAESKey);
+		static __fastcall bool GsAESProDecryptFile(const GsStoreData &gsHash, LPCWSTR lpcszFileInput, LPCWSTR lpcszFileOutput, const enSizeKey enAESKey);
 	private:
-		static __fastcall bool _GsAESProComputeHMAC(const BYTE *pKey, DWORD cbKeyLen, const BYTE *pbData, DWORD cbDataLen, BYTE hmacOut[32]);
+		static __fastcall bool _GsAESProComputeHMAC(const BYTE *pBKey, const DWORD DKeyLen, const BYTE *pcBData, const DWORD cDDataLen,
+				BYTE *pBhmacOut, DWORD cbHmacOut=32);
 };
 
 #endif //GSAESCRYPT_H

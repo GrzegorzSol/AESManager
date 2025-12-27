@@ -1,7 +1,7 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: AESManager.h
-// Data: 12.12.2025, 17:31
+// Data: 26.12.2025, 07:26
 
 //
 // Created by GrzegorzS on 21.10.2025.
@@ -42,52 +42,30 @@ enum
 	IDBUTTON_PATH_DIR
 };
 
-constexpr TCHAR GLOBAL_CLASS_NAME[] = TEXT("MojeOknoWinAPI"),
-	GLOBAL_TITLE_WINDOW[] = TEXT("Główne okno - Grzegorz Sołtysik"),
-	GLOBAL_FONT_NAME[] = TEXT("Segoe UI"),
-	GLOBAL_CRYPT_EXT[] = TEXT(".gscrypt"),
+extern const TCHAR GLOBAL_CLASS_NAME[],
+	GLOBAL_TITLE_WINDOW[],
+	GLOBAL_FONT_NAME[],
+	GLOBAL_CRYPT_EXT[],
 	// Zmienne dla pliku .ini
-	GLOBAL_CONFIGFILENAME[] = TEXT("AESManager.ini"),
-	GLOBAL_MAINSECTION[] = TEXT("MAIN"),
-	GLOBAL_KEY_PASSWORD[] = TEXT("PassDefault"),
-	GLOBAL_TEXT_DEFAULT_PASSWORD[] = TEXT(""),
-	GLOBAL_KEY_TYPEAES[] = TEXT("AESSizeType"),
-	GLOBAL_AESTYPE[] = TEXT("AESType"),
+	GLOBAL_CONFIGFILENAME[],
+	GLOBAL_MAINSECTION[],
+	GLOBAL_KEY_PASSWORD[],
+	GLOBAL_TEXT_DEFAULT_PASSWORD[],
+	GLOBAL_KEY_TYPEAES[], // Czy AES-128, czy AES-256.
+	GLOBAL_AESTYPE[],					// Wersja uproszczona, czy profesjonalna.
 	// Możliwe typy szyfrowania(długości klucza)
-	GLOBAL_VALUE_SIZEAES_128[] = TEXT("128"),
-	GLOBAL_VALUE_SIZEAES_256[] = TEXT("256"),
+	GLOBAL_VALUE_SIZEAES_128[],
+	GLOBAL_VALUE_SIZEAES_256[],
 	// Możliwe typ szyfrowania AES
-	GLOBAL_VALUE_TYPEAES_BASIC[] = TEXT("AESBasic"),
-	GLOBAL_VALUE_TYPEAES_PROFF[] = TEXT("AESProff"),
+	GLOBAL_VALUE_TYPEAES_BASIC[],
+	GLOBAL_VALUE_TYPEAES_PROFF[],
 	// Nazwa pliku zapisanej histori operacji
-	GLOBAL_HISTORY_FILE[] = TEXT("Historia_AES.txt");
+	GLOBAL_HISTORY_FILE[];
 
-constexpr int ID_START_COUNT = IDBUTTON_OPEN_FILE,
-				GLOBAL_SIZE_FONT = 11,
-				GLOBAL_CODEPASS = 0x25CF;
+extern const int ID_START_COUNT,
+				GLOBAL_SIZE_FONT,
+				GLOBAL_CODEPASS;
 // Tablica napisów
-const TCHAR *GLOBAL_STRINGS[] =
-{
-	TEXT("Informacja"), TEXT("Wyjście"), TEXT("Ikona"),							//0-2
-	TEXT("AESManager - Aplikacja do szyfrowania"), TEXT("Przycisk"),			//3-4
-	// Tekst opisów w status barze
-	TEXT("Otwarcie pliku lub katalogu do zaszyfrowania, lub odszyfrowania"),	//5
-	TEXT("Rozpoczęcie procesu szyfrowania, lub deszyfrowania pliku"),			//6
-	TEXT("Zapisanie aktualnej konfiguracji do pliku"),							//7
-	TEXT("Rozpoczęcie procesu szyfrowania, lub deszyfrowania całego katalogu"),	//8
-	TEXT("Zapis historii operacji wykonywanych w aplikacji"),					//9
-	TEXT("Kasowanie całej historii operacji"),									//10
-	TEXT("Informacja o aplikacji"),												//11
-
-	TEXT("Opis przycisku"),														//12
-	// Tekst podpowiedzi
-	TEXT("Wybór pliku..."),														//13
-	TEXT("Start..."),												//14
-	TEXT("Zapisanie konfiguracji"),												//15
-	TEXT("Wybór katalogu..."),											//16
-	TEXT("Zapisanie historii"),													//17
-	TEXT("Kasowanie historii"),
-	TEXT("Informacje")
-};
+extern const TCHAR *GLOBAL_STRINGS[];
 
 #endif //AESMANAGER_AESMANAGER_H

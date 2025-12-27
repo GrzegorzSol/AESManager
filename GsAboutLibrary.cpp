@@ -1,7 +1,7 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: GsAboutLibrary.cpp
-// Data: 12.12.2025, 17:31
+// Data: 26.12.2025, 07:26
 
 //
 // Created by GrzegorzS on 23.11.2025.
@@ -100,7 +100,8 @@ void __fastcall OnInitDialog(HWND hDlg)
 		OPIS WYNIKU METODY(FUNKCJI):
 */
 {
-		TCHAR *lpszInfoVersion=nullptr, szpTextInfo[48],
+	constexpr int szpTextInfoLen = 100;
+	TCHAR *lpszInfoVersion=nullptr, szpTextInfo[szpTextInfoLen],
 					szTextFull[] = TEXT("Aplikacja przeznaczona jest do szyfrowania za pomocą metody AES. ")
 												 TEXT("Można wybrać złożoność szyfrowania pomiędzy AES 128, albo 256 bitowym. ")
 												 TEXT("Powyższa aplikacja ma status GNU z dostępnym kodem źródłowym. ")
@@ -111,7 +112,8 @@ void __fastcall OnInitDialog(HWND hDlg)
 		// SetWindowLong(hDlg, GWL_EXSTYLE, exStyle | WS_EX_LAYERED);
 		// SetLayeredWindowAttributes(hDlg, 0, 220, LWA_ALPHA);
 		lpszInfoVersion = MyVersion::GetInfo(); // Informacja o wersji
-		StringCchPrintf(szpTextInfo, 100, TEXT("AESManager v%s (c)Grzegorz Sołtysik"), lpszInfoVersion);
+		StringCchPrintf(szpTextInfo, szpTextInfoLen, TEXT("AESManager v%s © Grzegorz Sołtysik [Oświęcim Date: %S Time: %S]"),
+			lpszInfoVersion, __DATE__, __TIME__);
 		// Modyfikacja kontrolki CTEXT (Autor).
 		SetDlgItemText(hDlg, IDC_INFO_APP, szpTextInfo);
 		// Modyfikacja kontrolki LTEXT (Full).

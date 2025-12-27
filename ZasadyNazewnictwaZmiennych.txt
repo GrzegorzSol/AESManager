@@ -1,0 +1,34 @@
+﻿18:32 26.12.2025
+ZASADA NAZEWNICTWA ZMIENNYCH WEDŁUG WŁASNEGO STANDARU.
+
+Zmienne w aplikacji WinAp.
+
+Typ Danych  		Przedrostek
+
+LONGPOINTER 			LP
+LARGE_INTEGER			LI
+constexpr ULONG		cUL
+const ULONG				cUL
+ULONG							UL
+TCHAR*, CHAR*			lpsz
+TCHAR, CHAR*			sz
+WCHAR							wsz
+WCHAR*						pwsz
+LPCWSTR						lpcsz
+LPWSTR						lpsz
+BYTE*							pB
+PBYTE							pB
+DWORD							D
+const DWORD				cD
+size_t						Size(końcówka)
+HANDLE						h
+
+
+Zmienne w klasycznym C++
+
+Typ Danych  		Przedrostek
+*									p
+const int					ci
+bool							b
+
+Propozycje: W winapi wszystkie zmienne sa pisane dużymi literami, wiec może przedrostek tez oznaczać dużymi literami?
