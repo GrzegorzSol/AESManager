@@ -1,7 +1,7 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: main.cpp
-// Data: 26.12.2025, 07:26
+// Data: 1.01.2026, 06:04
 
 //TODO:
 
@@ -9,6 +9,8 @@
 #define UNICODE
 #define STRICT
 #define NO_WIN32_LEAN_AND_MEAN
+
+//#define __ISTESTDARKMODE__
 
 #include <tchar.h>
 #include <shlwapi.h>
@@ -21,6 +23,10 @@
 #include "GsAESCrypt.h"
 #include "AESManager.h"
 #include "GsAboutLibrary.h"
+#ifdef __ISTESTDARKMODE__
+	#include <dwmapi.h>
+#endif
+#include <VersionHelpers.h>
 
 #define WM_TRAYICON (WM_USER + 1)
 
@@ -55,7 +61,7 @@ void __fastcall SelectViewFile(LPCWSTR lpcszSelectFile); // Wpisanie wybranego p
 void __fastcall SelectViewDir(LPCWSTR lpcszSelectDir); // Wpisanie wybranego katalogu roboczego
 
 NOTIFYICONDATA GLOBAL_NID;
-ULONG_PTR gdiplusToken; // globalny token GDI+.
+ULONG_PTR GLOBAL_GDIPLUSTOKEN; // globalny token GDI+.
 
 static TCHAR *GLOBAL_STRVERSION=nullptr,
 				GLOBAL_GETPROCESS_DIRECTORY[MAX_PATH], // Ścieżka dostępu do katalogu roboczego
@@ -64,12 +70,12 @@ static TCHAR *GLOBAL_STRVERSION=nullptr,
 				GLOBAL_PATHCONFIG[MAX_PATH],
 				GLOBAL_INPUTFILE[MAX_PATH],	// Ścieżka dostępu do pliku wczytanego
 				GLOBAL_OUTPUTFILE[MAX_PATH];// Ścieżka dostępu do pliku po zaszyfrowaniu lub odszyfrowaniu
-int constexpr GLOBAL_ICSTARTWIDTH = 1210,	//Domyślna szerokość okna
-				GLOBAL_ICSTARTHEIGHT = 520,	//Domyślna wysokość okna
+int constexpr GLOBAL_ICSTARTWIDTH = 1340,	//Domyślna szerokość okna
+				GLOBAL_ICSTARTHEIGHT = 600,	//Domyślna wysokość okna
 				GLOBAL_CIMAXLONGTEXTHINT = 100,
 				GLOBAL_WIDTH_BUTT_VIEW_PASS = 138, // Szerokość przycisku pokazywania hasła
 				GLOBAL_HEIGHT_BUTT_VIEW_PASS = 42,	// Wysokość przycisku pokazywania hasła
-				GLOBAL_COUNT_BUTTON = 7;	// Ilość przycisków w toolbarze
+				GLOBAL_COUNT_BUTTON = 8;	// Ilość przycisków w toolbarze
 
 HFONT GLOBAL_HFONT=nullptr;//Główna czcionka
 HICON GLOBAL_HICON_VIEWPASS=nullptr; // Ikona dla przycisku podglądu hasła
@@ -91,6 +97,8 @@ HWND GLOBAL_HWND_MAINWINDOW=nullptr,	//Główne okno
 		GLOBAL_PATH_HWND_LABEL_INPUT=nullptr,
 		GLOBAL_PATH_HWND_EDITOUTPUT=nullptr,
 		GLOBAL_PATH_HWND_LABEL_OUTPUT=nullptr,
+		// Przycisk ComboBox podtypu AES
+		GLOBAL_HWND_CBOX_TYPEAES=nullptr,
 		// Przyciski radiowe typu szyfrowania
 		GLOBAL_HWND_RGROUP_AES128=nullptr,
 		GLOBAL_HWND_RGROUP_AES256=nullptr,
@@ -106,6 +114,7 @@ static bool GLOBAL_TOGGLE_STATE_PASS=false, // Stan przycisku pokazywania stanu 
 			GLOBAL_TYPE_AES_PROFF=true,	// Przełącznik trybu szyfrowania AES. True-wersja pełna, profesjonalna.
 																	// False, wersja uproszczona.
 			GLOBAL_HOVER=false; // stan hover
+static enListTypeAES GLOBAL_AES_VERSION=enListTypeAES::enListTypeAES_CBC_HMAC;
 
 	#ifdef __MYDEBUG__
 		TCHAR GlmainszInfoDebug[MAX_PATH];
@@ -188,7 +197,7 @@ LRESULT CALLBACK WndProc(const HWND cHwnd, const UINT cUIMessage, WPARAM wParam,
 			TaskDialogIndirect(&tdc, &nButton, nullptr, nullptr);
 			if(nButton == IDOK)
 			{
-				Gdiplus::GdiplusShutdown(gdiplusToken);
+				Gdiplus::GdiplusShutdown(GLOBAL_GDIPLUSTOKEN);
 				DestroyWindow(cHwnd);
 			}
 		}
@@ -228,12 +237,18 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance,
 	TCHAR szTextInfo[MAX_PATH];
 	HRESULT hr;
 
+	if(!IsWindows10OrGreater()) // Sprawdzenie systemu.
+	{
+		MessageBox(nullptr, TEXT("Aktualna wersja systemu jest niższa niż Windows 10!"
+			" Windows 10 jest minimalną, wymaganą wersją systemu. Nastąpi opuszczenie aplikacji!"), TEXT("System nie obsługiwany"), MB_ICONERROR);
+		return 1;
+	}
 	// Odczyt ścieżki dostępu do katalogu aplikacji
 	SecureZeroMemory(&GLOBAL_GETEXEDIR, sizeof(GLOBAL_GETEXEDIR));
 	GetModuleFileName(nullptr, GLOBAL_GETEXEDIR, MAX_PATH);
 	PathCchRemoveFileSpec(GLOBAL_GETEXEDIR, MAX_PATH);
 	// Stworzenie ścieżki do pliku konfiguracji
-	PathCchCombine(GLOBAL_PATHCONFIG, MAX_PATH, GLOBAL_GETEXEDIR, GLOBAL_CONFIGFILENAME);
+	PathCchCombine(GLOBAL_PATHCONFIG, MAX_PATH, GLOBAL_GETEXEDIR, GLOBAL_PATH_CONFIGFILENAME);
 	//MessageBox(nullptr, GLOBAL_PATHCONFIG, TEXT("Katalog aplikacji"), MB_ICONINFORMATION);
 
 	GLOBAL_STRVERSION = MyVersion::GetInfo(); // Informacja o wersji
@@ -316,9 +331,13 @@ void __fastcall OnCreate(const HWND cHwnd, UINT message, WPARAM wParam, LPARAM l
 	OPIS WYNIKU METODY (FUNKCJI):
 */
 {
+	#ifdef __ISTESTDARKMODE__
+		BOOL dark = TRUE;
+		DwmSetWindowAttribute(cHwnd, 20, &dark, sizeof(dark));
+	#endif
 	// Inicjalizacja GDI+ przy tworzeniu okna
 	Gdiplus::GdiplusStartupInput gdiplusStartupInput;
-	if(GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, nullptr) != Gdiplus::Ok)
+	if(GdiplusStartup(&GLOBAL_GDIPLUSTOKEN, &gdiplusStartupInput, nullptr) != Gdiplus::Ok)
 	{
 		MessageBox(nullptr, TEXT("Nie udało się zainicjalizować GDI+"), TEXT("Błąd"), MB_ICONERROR);
 		return;
@@ -391,7 +410,8 @@ void __fastcall OnResize(const HWND cHwnd, UINT message, LPARAM lParam)
 		 RectRGroupAES128,	// Wymiary przycisku radiowego szyfrowania AES128
 		 RectRGroupAES256,	// Wymiary przycisku radiowego szyfrowania AES256
 		 RectRGroupAESBasic,// Wymiary przycisku radiowego szyfrowania AES256 uproszczonego
-		 RectRGroupAESPROFF;// Wymiary przycisku radiowego szyfrowania AES256 profesjonalnego
+		 RectRGroupAESPROFF,// Wymiary przycisku radiowego szyfrowania AES256 profesjonalnego
+		 RectCBoxAESType; // Wymiary kontrolki typu ComboBox dla podtypu szyfrowania AES
 	//Odczyt szerokości i wysokości okna, po zmianie jego rozmiarów
 	int iWidthMainWindow = LOWORD(lParam),	//Nowa szerokość okna
 		iHeightMainWindow = HIWORD(lParam), //Nowa wysokość okna
@@ -405,14 +425,14 @@ void __fastcall OnResize(const HWND cHwnd, UINT message, LPARAM lParam)
 	SetWindowPos(GLOBAL_HWND_HTOOLBAR, nullptr, 4, 0, iWidthMainWindow - 8, 0, SWP_NOZORDER);
 	GsGetControlSize(GLOBAL_HWND_HTOOLBAR, cHwnd, RecHToolBar);	//Wymiary ToolBaru
 	//Zmiana wysokości kontrolki MemoEdit
-	int TOP_HMEMORYTEXTINFO = (iHeightMainWindow - RecHToolBar.bottom) / 2;
+	int TOP_HMEMORYTEXTINFO = (iHeightMainWindow - RecHToolBar.bottom) / 2 - 20;
 	iHeightControl = RectHStatusBar.bottom - RectHStatusBar.top;
 	SetWindowPos(GLOBAL_HWND_HMEMORYTEXTINFOS, nullptr, 4, TOP_HMEMORYTEXTINFO,
 		iWidthMainWindow - 8, iHeightMainWindow - TOP_HMEMORYTEXTINFO - iHeightControl, SWP_NOZORDER);
 	GsGetControlSize(GLOBAL_HWND_HMEMORYTEXTINFOS, cHwnd, RectHMemoryTextInfo);	//Wymiary Memo
 
 	GLOBAL_RECT_LEFTTOPPANEL = RECT{4, RecHToolBar.bottom + 4,
-		iWidthMainWindow / 4, (iHeightMainWindow - RecHToolBar.bottom) / 3 + 16};
+		iWidthMainWindow / 4, (iHeightMainWindow - RecHToolBar.bottom) / 4 + 26};
 	GLOBAL_RECT_RIGHTTOPPANEL = RECT{GLOBAL_RECT_LEFTTOPPANEL.right + 4, GLOBAL_RECT_LEFTTOPPANEL.top,
 		iWidthMainWindow - 4, GLOBAL_RECT_LEFTTOPPANEL.bottom};
 	GLOBAL_RECT_LEFTBOTTPANEL = RECT{4, GLOBAL_RECT_LEFTTOPPANEL.bottom + 4,
@@ -507,9 +527,15 @@ void __fastcall OnResize(const HWND cHwnd, UINT message, LPARAM lParam)
 
 	// Przycisk radiowy szyfrowania profesjonalnego.
 	SetWindowPos(GLOBAL_HWND_RGROUP_AESPROFF, nullptr,
-		iWidthMainWindow / 2 + (iWidthMainWindow / 4) + 16, RectRGroupAES128.top, iWidthMainWindow / 4 - 32,
+		iWidthMainWindow / 2 + (iWidthMainWindow / 4) + 16, RectRGroupAES128.top - 20, iWidthMainWindow / 4 - 32,
 		RectEditPass.bottom - RectEditPass.top, SWP_NOZORDER);
 	GsGetControlSize(GLOBAL_HWND_RGROUP_AESPROFF, cHwnd, RectRGroupAESPROFF);
+	// Przycisk ComboBox podtypu szyfrowania AES
+	SetWindowPos(GLOBAL_HWND_CBOX_TYPEAES, nullptr,
+		RectRGroupAESPROFF.left, GLOBAL_RECT_RIGHTBOTTPANEL.bottom - (RectEditDir.bottom - RectEditDir.top) - 12,
+		200, RectEditDir.bottom - RectEditDir.top,
+		SWP_NOZORDER);
+	GsGetControlSize(GLOBAL_HWND_CBOX_TYPEAES, cHwnd, RectCBoxAESType);
 }
 //---------------------------------------------------------------------------
 void __fastcall OnCommand(const HWND cHwnd, UINT message, const WPARAM cWParam, const LPARAM cLParam)
@@ -549,10 +575,6 @@ void __fastcall OnCommand(const HWND cHwnd, UINT message, const WPARAM cWParam, 
 			// Rozpoczecie procesu szyfrowania lub deszyfrowania pojedyńczego pliku, lub całej zawartości katalogu.
 			{
 				TCHAR szFile[MAX_PATH], szDir[MAX_PATH];
-				#ifdef __MYDEBUG__
-					GsStoreData::isiCleanup = 0;
-				#endif
-
 
 				if(GetWindowText(GLOBAL_PATH_HWND_EDITINPUT, szFile, MAX_PATH) > 0)
 					// Operacja na pojedyńczym pliku
@@ -562,11 +584,6 @@ void __fastcall OnCommand(const HWND cHwnd, UINT message, const WPARAM cWParam, 
 					{ProcessDirectoryName(GLOBAL_GETPROCESS_DIRECTORY);}
 				// Przycisk uruchamiania operacji zostaje dezaktywowany po jej zakończeniu [13-12-2025]
 				SendMessage(GLOBAL_HWND_HTOOLBAR, TB_ENABLEBUTTON, IDBUTTON_RUN_PROCESS, MAKELONG(FALSE, 0));
-				#ifdef __MYDEBUG__
-					StringCchPrintf(GlmainszInfoDebug, MAX_PATH, TEXT("GsStoreData::isiCleanup: %d"), GsStoreData::isiCleanup);
-					MessageBox(nullptr, GlmainszInfoDebug, TEXT("Informacja"), MB_ICONINFORMATION);
-				#endif
-
 			}
 			break;
 			//---
@@ -577,6 +594,12 @@ void __fastcall OnCommand(const HWND cHwnd, UINT message, const WPARAM cWParam, 
 			case IDBUTTON_SAVE_HISTORY:
 			{
 				SaveHistoryFile();
+			}
+			break;
+			//---
+			case IDBUTTON_READCONFIG:
+			{
+				ReadFileConfig();
 			}
 			break;
 			//---
@@ -616,9 +639,28 @@ void __fastcall OnCommand(const HWND cHwnd, UINT message, const WPARAM cWParam, 
 		// Przycisk rozpoczęcia procesu zacznie się tylko wtedy gdy będą istnieć trzy zmienne:
 		// hasło, ścieżka wejściowa i wyjściowa.
 		const bool bIsExist = IsExistParamsEdit(); // Sprawdzanie istnienia trzech parametrów.
+		// TCHAR szGetPassword[MAX_PATH];
+		// bIsExist = (GetWindowText(GLOBAL_HWND_EDITPASSWORD, szGetPassword, MAX_PATH) > 0);
 		SendMessage(GLOBAL_HWND_HTOOLBAR, TB_ENABLEBUTTON, IDBUTTON_RUN_PROCESS, MAKELONG(bIsExist, 0));
 	}
-
+	// === Radio buttony do wyboru między prostym a zaawansowanym szyfrowaniem AES
+	else if((reinterpret_cast<HWND>(cLParam) == GLOBAL_HWND_RGROUP_AESBASIC) && LOWORD(cWParam) == IDBUTTON_RBUTTON_AESBASIC && (HIWORD(cWParam) == BN_CLICKED))
+	{
+		EnableWindow(GLOBAL_HWND_CBOX_TYPEAES, FALSE);
+	}
+	else if((reinterpret_cast<HWND>(cLParam) == GLOBAL_HWND_RGROUP_AESPROFF) && LOWORD(cWParam) == IDBUTTON_RBUTTON_AESPROFF && (HIWORD(cWParam) == BN_CLICKED))
+	{
+		EnableWindow(GLOBAL_HWND_CBOX_TYPEAES, TRUE);
+	}
+	// === Obsługa komunikatów z kontrolki ComboBox, wyboru podtypu szyfrowania AES
+	else if((reinterpret_cast<HWND>(cLParam) == GLOBAL_HWND_CBOX_TYPEAES) && LOWORD(cWParam) == IDBUTTON_CBOX_TYPEAES && (HIWORD(cWParam) == CBN_SELCHANGE))
+	{
+		const int ciIndex = static_cast<int>(SendMessage(GLOBAL_HWND_CBOX_TYPEAES, CB_GETCURSEL, 0, 0));
+		if(ciIndex == enListTypeAES_CBC_HMAC)
+			{GLOBAL_AES_VERSION=enListTypeAES::enListTypeAES_CBC_HMAC;}
+		else if(ciIndex == enListTypeAES_GCM_TAG)
+			{GLOBAL_AES_VERSION=enListTypeAES::enListTypeAES_GCM_TAG;}
+	}
 	// === Obsługa komunikatów z traya. ===
 	else // Wybrano pozycja z menu traya.
 	{
@@ -679,6 +721,11 @@ void __fastcall OnNotify(const HWND cHwnd, UINT message, const LPARAM cLParam)
 				case IDBUTTON_SAVECOFIG:
 					lPNMDispInfo->lpszText = const_cast<TCHAR *>(GLOBAL_STRINGS[STR_TEXT_HINT_SAVECONFIG]);
 					SendMessage(GLOBAL_HWND_HSTATUSBAR, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(GLOBAL_STRINGS[STR_LONG_SAVECONFIG]));
+					break;
+				//---
+				case IDBUTTON_READCONFIG:
+					lPNMDispInfo->lpszText = const_cast<TCHAR *>(GLOBAL_STRINGS[STR_TEXT_HINT_READCONFIG]);
+					SendMessage(GLOBAL_HWND_HSTATUSBAR, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(GLOBAL_STRINGS[STR_LONG_READCONFIG]));
 					break;
 				//---
 				case IDBUTTON_OPEN_DIR:
@@ -775,6 +822,10 @@ void __fastcall CreateToolBar(const HWND cHwnd)
 	ImageList_AddIcon(GLOBAL_HIMGLIST32, hIcon);
 	DestroyIcon(hIcon);
 
+	hIcon = static_cast<HICON>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(OPEN_USE_CONFIG), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR)); //3
+	ImageList_AddIcon(GLOBAL_HIMGLIST32, hIcon);
+	DestroyIcon(hIcon);
+
 	hIcon = static_cast<HICON>(LoadImage(GLOBAL_HINSTANCE, MAKEINTRESOURCE(OPEN_DIR), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR)); //3
 	ImageList_AddIcon(GLOBAL_HIMGLIST32, hIcon);
 	DestroyIcon(hIcon);
@@ -820,6 +871,12 @@ void __fastcall CreateToolBar(const HWND cHwnd)
 	//Skalowanie ToolButtona i jego wyświetlenie.
 	SendMessage(GLOBAL_HWND_HTOOLBAR, TB_AUTOSIZE, 0, 0);
 	//ShowWindow(GLOBAL_HTOOLBAR,	 TRUE);
+	// Dodanie separatora
+	TBBUTTON sep0 = {};
+	sep0.fsStyle = BTNS_SEP;
+	sep0.iBitmap = 10; // szerokość separatora
+	SendMessage(GLOBAL_HWND_HTOOLBAR, TB_INSERTBUTTON, IDIMAGE_SAVE_HISTORY, reinterpret_cast<LPARAM>(&sep0));
+	SendMessage(GLOBAL_HWND_HTOOLBAR, TB_AUTOSIZE, 0, 0);
 
 	// Wyłuskanie okna podpowiedzi i jego modyfikacja
 	HWND hWindowTips=nullptr;
@@ -925,13 +982,22 @@ void __fastcall CreateOtherControls(const HWND cHwnd)
 	// Przyciski radiowe szyfrowania prostego i profesjonalnego.
 	GLOBAL_HWND_RGROUP_AESBASIC = CreateWindowEx(0, TEXT("BUTTON"), TEXT("Szyfrowanie uproszczone"),
 		WS_CHILD | WS_VISIBLE | WS_GROUP | BS_AUTORADIOBUTTON,// | WS_BORDER,
-		0, 0, 0, 0, cHwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
+		0, 0, 0, 0, cHwnd, reinterpret_cast<HMENU>(IDBUTTON_RBUTTON_AESBASIC), GLOBAL_HINSTANCE, nullptr);
 	if(GLOBAL_HWND_RGROUP_AESBASIC == nullptr) return;
 	GLOBAL_HWND_RGROUP_AESPROFF = CreateWindowEx(0, TEXT("BUTTON"), TEXT("Szyfrowanie profesjonalne"),
 		WS_CHILD | WS_VISIBLE | BS_AUTORADIOBUTTON,// | WS_BORDER,
-		0, 0, 0, 0, cHwnd, nullptr, GLOBAL_HINSTANCE, nullptr);
+		0, 0, 0, 0, cHwnd, reinterpret_cast<HMENU>(IDBUTTON_RBUTTON_AESPROFF), GLOBAL_HINSTANCE, nullptr);
 	if(GLOBAL_HWND_RGROUP_AESPROFF == nullptr) return;
-	SendMessage(GLOBAL_HWND_RGROUP_AESBASIC, BM_SETCHECK, BST_CHECKED, 0);	 // Zaznaczony Szyfrowanie uproszczone
+	//SendMessage(GLOBAL_HWND_RGROUP_AESBASIC, BM_SETCHECK, BST_CHECKED, 0);	 // Zaznaczony Szyfrowanie uproszczone
+
+	// Przycisk ComboBox dla podtypu szyfrowania AES
+	GLOBAL_HWND_CBOX_TYPEAES = CreateWindowEx(0, TEXT("COMBOBOX"), nullptr,
+		WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
+		0, 0, 0, 0, cHwnd, reinterpret_cast<HMENU>(IDBUTTON_CBOX_TYPEAES), GLOBAL_HINSTANCE, nullptr);
+	if(GLOBAL_HWND_CBOX_TYPEAES == nullptr) return;
+	for(int i=0; i<enListTypeAES::enListTypeAES_Count; ++i)
+		{SendMessage(GLOBAL_HWND_CBOX_TYPEAES, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(GS_StringListAESTypes[i]));}
+	SendMessage(GLOBAL_HWND_CBOX_TYPEAES, CB_SETCURSEL, 0, 0);
 }
 //---------------------------------------------------------------------------
 void __fastcall AddTrayIcon(const HWND cHwnd)
@@ -1000,15 +1066,15 @@ void __fastcall ReadFileConfig()
 {
 	constexpr int ciSizeTextTypeAES=48;
 	TCHAR szGetPassword[MAX_PATH], szSizeTypeAES[ciSizeTextTypeAES],
-		szTypeAES[ciSizeTextTypeAES], szOut[MAX_PATH];
+		szTypeAES[ciSizeTextTypeAES], szOut[MAX_PATH], szAESVersion[MAX_PATH];
 
 	SecureZeroMemory(&szGetPassword, sizeof(szGetPassword));
 	SecureZeroMemory(&szSizeTypeAES, sizeof(szSizeTypeAES));
-	GetPrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_KEY_PASSWORD, GLOBAL_TEXT_DEFAULT_PASSWORD, szGetPassword,
+	GetPrivateProfileString(GLOBAL_KEY_MAINSECTION, GLOBAL_KEY_PASSWORD, GLOBAL_VALUE_DEFAULT_PASSWORD, szGetPassword,
 		MAX_PATH, GLOBAL_PATHCONFIG);
-	GetPrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_KEY_TYPEAES, GLOBAL_VALUE_SIZEAES_256, szSizeTypeAES,
+	GetPrivateProfileString(GLOBAL_KEY_MAINSECTION, GLOBAL_KEY_TYPEAES, GLOBAL_VALUE_SIZEAES_256, szSizeTypeAES,
 		MAX_PATH, GLOBAL_PATHCONFIG);
-	GetPrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_AESTYPE, GLOBAL_VALUE_TYPEAES_BASIC, szTypeAES,
+	GetPrivateProfileString(GLOBAL_KEY_MAINSECTION, GLOBAL_KEY_AESTYPE, GLOBAL_VALUE_TYPEAES_BASIC, szTypeAES,
 		MAX_PATH, GLOBAL_PATHCONFIG);
 	// Deszyfrowanie odczytanego hasła
 
@@ -1031,12 +1097,26 @@ void __fastcall ReadFileConfig()
 	{
 		SendMessage(GLOBAL_HWND_RGROUP_AESBASIC, BM_SETCHECK, BST_CHECKED, 0);
 		SendMessage(GLOBAL_HWND_RGROUP_AESPROFF, BM_SETCHECK, BST_UNCHECKED, 0);
+		EnableWindow(GLOBAL_HWND_CBOX_TYPEAES, FALSE);
 	}
 	else if(StrRStrI(szTypeAES, nullptr, GLOBAL_VALUE_TYPEAES_PROFF))
 	{
 		SendMessage(GLOBAL_HWND_RGROUP_AESPROFF, BM_SETCHECK, BST_CHECKED, 0);
 		SendMessage(GLOBAL_HWND_RGROUP_AESBASIC, BM_SETCHECK, BST_UNCHECKED, 0);
+		EnableWindow(GLOBAL_HWND_CBOX_TYPEAES, TRUE);
 	}
+	// Odczyt podtypu AES w wersji profesjonalnej
+	GetPrivateProfileString(GLOBAL_KEY_MAINSECTION, GLOBAL_KEY_AES_PROFF_VERSION,
+		GLOBAL_VALUE_VERSION_AES_CBC_HMAC, szAESVersion, MAX_PATH, GLOBAL_PATHCONFIG);
+	if(StrRStrI(szAESVersion, nullptr, GLOBAL_VALUE_VERSION_AES_CBC_HMAC))
+	{
+		GLOBAL_AES_VERSION = enListTypeAES::enListTypeAES_CBC_HMAC;
+	}
+	else if(StrRStrI(szAESVersion, nullptr, GLOBAL_VALUE_VERSION_AES_GCM_TAG))
+	{
+		GLOBAL_AES_VERSION = enListTypeAES::enListTypeAES_GCM_TAG;
+	}
+	SendMessage(GLOBAL_HWND_CBOX_TYPEAES, CB_SETCURSEL, GLOBAL_AES_VERSION, 0);
 }
 //---------------------------------------------------------------------------
 void __fastcall WriteFileConfig()
@@ -1056,7 +1136,7 @@ void __fastcall WriteFileConfig()
 	// Zakodowanie hasła Base64
 	if(TCHAR *pszCryptPass = GsAESFunEncodeBase64(szSetPassword))
 	{
-		WritePrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_KEY_PASSWORD, pszCryptPass, GLOBAL_PATHCONFIG);
+		WritePrivateProfileString(GLOBAL_KEY_MAINSECTION, GLOBAL_KEY_PASSWORD, pszCryptPass, GLOBAL_PATHCONFIG);
 		HeapFree(GetProcessHeap(), 0, pszCryptPass); pszCryptPass = nullptr;
 	} else return;
 	// Typ AES-128, lub AES-256
@@ -1068,7 +1148,7 @@ void __fastcall WriteFileConfig()
 	{
 		StringCchCopy(szSizeTypeAES, ciSizeTextTypeAES, GLOBAL_VALUE_SIZEAES_256);
 	}
-	WritePrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_KEY_TYPEAES, szSizeTypeAES, GLOBAL_PATHCONFIG);
+	WritePrivateProfileString(GLOBAL_KEY_MAINSECTION, GLOBAL_KEY_TYPEAES, szSizeTypeAES, GLOBAL_PATHCONFIG);
 	// Typ AES, uproszczony, lub profesionalny.
 	if(SendMessage(GLOBAL_HWND_RGROUP_AESBASIC, BM_GETCHECK, 0, 0) == BST_CHECKED)
 	{
@@ -1078,7 +1158,19 @@ void __fastcall WriteFileConfig()
 	{
 		StringCchCopy(szTypeAES, ciSizeTextTypeAES, GLOBAL_VALUE_TYPEAES_PROFF);
 	}
-	WritePrivateProfileString(GLOBAL_MAINSECTION, GLOBAL_AESTYPE, szTypeAES, GLOBAL_PATHCONFIG);
+	WritePrivateProfileString(GLOBAL_KEY_MAINSECTION, GLOBAL_KEY_AESTYPE, szTypeAES, GLOBAL_PATHCONFIG);
+	// Podtyp AES w wersji profesjonalnej, AES-CBC + HMAC lub AES-GCM + TAG
+	const int ciIndex = static_cast<int>(SendMessage(GLOBAL_HWND_CBOX_TYPEAES, CB_GETCURSEL, 0, 0));
+	if(ciIndex == enListTypeAES_CBC_HMAC)
+	{
+		WritePrivateProfileString(GLOBAL_KEY_MAINSECTION, GLOBAL_KEY_AES_PROFF_VERSION,
+			GLOBAL_VALUE_VERSION_AES_CBC_HMAC, GLOBAL_PATHCONFIG);
+	}
+	else if(ciIndex == enListTypeAES_GCM_TAG)
+	{
+		WritePrivateProfileString(GLOBAL_KEY_MAINSECTION, GLOBAL_KEY_AES_PROFF_VERSION,
+			GLOBAL_VALUE_VERSION_AES_GCM_TAG, GLOBAL_PATHCONFIG);
+	}
 }
 //---------------------------------------------------------------------------
 GsStoreData __fastcall CreateHash(const enSizeSHABit eSizeSHABit)
@@ -1137,8 +1229,6 @@ void __fastcall ProcessFilesNames()
 												 lub zakończenia nadrzędnej funkcji typu lambda
 	*/
 	{
-		// zwolnienie pamięci
-		//if(gsHashResult.pbData) {HeapFree(GetProcessHeap(), 0, gsHashResult.pbData); gsHashResult.pbData = nullptr;}
 	};
 
 	if (gsHashResult.DDataLen == 0)
@@ -1156,9 +1246,18 @@ void __fastcall ProcessFilesNames()
 	{
 		if(GLOBAL_TYPE_AES_PROFF) // [14-12-2025]
 		{
-			bSuccess = GsAESPro::GsAESProDecryptFile(gsHashResult, szInputFilePath, szOutputFilePath, eSizeKey);
-			StringCchPrintf(szTextInfos, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Odszyfrowywuje metodą profesjonalną, plik: \"%s\""),
-			st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, szInputFilePath);
+			if(GLOBAL_AES_VERSION == enListTypeAES::enListTypeAES_CBC_HMAC)
+			{
+				bSuccess = GsAESPro::GsAESPro_CBC_HMAC_DecryptFile(gsHashResult, szInputFilePath, szOutputFilePath, eSizeKey);
+				StringCchPrintf(szTextInfos, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Odszyfrowywuje metodą profesjonalną AES-CBC + HMAC, plik: \"%s\""),
+					st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, szInputFilePath);
+			}
+			else if(GLOBAL_AES_VERSION == enListTypeAES::enListTypeAES_GCM_TAG)
+			{
+				bSuccess = GsAESPro::GsAESPro_GCM_TAG_DecryptFile(gsHashResult, szInputFilePath, szOutputFilePath, eSizeKey);
+				StringCchPrintf(szTextInfos, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Odszyfrowywuje metodą profesjonalną AES-GCM + TAG, plik: \"%s\""),
+					st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, szInputFilePath);
+			}
 		}
 		else
 		{
@@ -1182,9 +1281,18 @@ void __fastcall ProcessFilesNames()
 	{
 		if(GLOBAL_TYPE_AES_PROFF) // [14-12-2025]
 		{
-			bSuccess = GsAESPro::GsAESProCryptFile(gsHashResult, szInputFilePath, szOutputFilePath, eSizeKey);
-			StringCchPrintf(szTextInfos, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Szyfruje metodą profesjonalną, plik: \"%s\""),
-			st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, szInputFilePath);
+			if(GLOBAL_AES_VERSION == enListTypeAES::enListTypeAES_CBC_HMAC)
+			{
+				bSuccess = GsAESPro::GsAESPro_CBC_HMAC_CryptFile(gsHashResult, szInputFilePath, szOutputFilePath, eSizeKey);
+				StringCchPrintf(szTextInfos, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Szyfruje metodą profesjonalną AES-CBC + HMAC, plik: \"%s\""),
+					st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, szInputFilePath);
+			}
+			else if(GLOBAL_AES_VERSION == enListTypeAES::enListTypeAES_GCM_TAG)
+			{
+				bSuccess = GsAESPro::GsAESPro_GCM_TAG_CryptFile(gsHashResult, szInputFilePath, szOutputFilePath, eSizeKey);
+				StringCchPrintf(szTextInfos, MAX_PATH, TEXT("Data: %04d-%02d-%02d, Czas: %02d:%02d:%02d - Szyfruje metodą profesjonalną AES-GCM + TAG, plik: \"%s\""),
+					st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, szInputFilePath);
+			}
 		}
 		else
 		{
@@ -1340,11 +1448,22 @@ void __fastcall ProcessDirectoryName(LPCWSTR lpcszDirectoryName)
 			StringCchCat(szFileResult, MAX_PATH, ffd.cFileName);
 			eTypeProcess = ProcessExtendFileName(szFileResult, true);
 
+			//============================= SZYFROWANIE ===========================
 			if(eTypeProcess == enTypeProcess_Crypt)
 			// Szyfrowanie
 			{
 				// [14-12-2025]
-				if(GLOBAL_TYPE_AES_PROFF) {bIsSucces = GsAESPro::GsAESProCryptFile(gsHashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);}
+				if(GLOBAL_TYPE_AES_PROFF)
+				{
+					if(GLOBAL_AES_VERSION == enListTypeAES::enListTypeAES_CBC_HMAC)
+					{
+						bIsSucces = GsAESPro::GsAESPro_CBC_HMAC_CryptFile(gsHashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);
+					}
+					else if(GLOBAL_AES_VERSION == enListTypeAES::enListTypeAES_GCM_TAG)
+					{
+						bIsSucces = GsAESPro::GsAESPro_GCM_TAG_CryptFile(gsHashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);
+					}
+				}
 				else {bIsSucces = GsAESBasic::GsAESBasicCryptFile(gsHashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);}
 
 				if(!bIsSucces)
@@ -1355,18 +1474,43 @@ void __fastcall ProcessDirectoryName(LPCWSTR lpcszDirectoryName)
 				}
 				else
 				{
-					if(GLOBAL_TYPE_AES_PROFF) StringCchPrintf(szInfosText, MAX_PATH, TEXT("SZYFROWANIE PROFESJONALNE: -> \"%s\" >>>>>> \"%s\""),
-						GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE);
+					if(GLOBAL_TYPE_AES_PROFF)
+					{
+						if(GLOBAL_AES_VERSION == enListTypeAES::enListTypeAES_CBC_HMAC)
+						{
+							StringCchPrintf(szInfosText, MAX_PATH, TEXT("SZYFROWANIE PROFESJONALNE: AES-CBC + HMAC -> \"%s\" >>>>>> \"%s\""),
+								GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE);
+						}
+						else if(GLOBAL_AES_VERSION == enListTypeAES::enListTypeAES_GCM_TAG)
+						{
+							StringCchPrintf(szInfosText, MAX_PATH, TEXT("SZYFROWANIE PROFESJONALNE: AES-GCM + TAG -> \"%s\" >>>>>> \"%s\""),
+								GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE);
+						}
+					}
 					else StringCchPrintf(szInfosText, MAX_PATH, TEXT("SZYFROWANIE UPROSZCZONE: -> \"%s\" >>>>>> \"%s\""),
 						GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE);
 				}
 			}
+			//=========================== ODSZYFROWYWANIE =========================
 			else if(eTypeProcess == enTypeProcess_Decrypt)
 			// Odszyfrowywanie
 			{
 				// [14-12-2025]
-				if(GLOBAL_TYPE_AES_PROFF) {bIsSucces = GsAESPro::GsAESProDecryptFile(gsHashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);}
-				else {bIsSucces = GsAESBasic::GsAESBasicDecryptFile(gsHashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);}
+				if(GLOBAL_TYPE_AES_PROFF)
+				{
+					if(GLOBAL_AES_VERSION == enListTypeAES::enListTypeAES_CBC_HMAC)
+					{
+						bIsSucces = GsAESPro::GsAESPro_CBC_HMAC_DecryptFile(gsHashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);
+					}
+					else if(GLOBAL_AES_VERSION == enListTypeAES::enListTypeAES_GCM_TAG)
+					{
+						bIsSucces = GsAESPro::GsAESPro_GCM_TAG_DecryptFile(gsHashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);
+					}
+				}
+				else
+				{
+					bIsSucces = GsAESBasic::GsAESBasicDecryptFile(gsHashResult, GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE, eSizeKey);
+				}
 
 				if(!bIsSucces)
 				{
@@ -1376,8 +1520,19 @@ void __fastcall ProcessDirectoryName(LPCWSTR lpcszDirectoryName)
 				}
 				else
 				{
-					if(GLOBAL_TYPE_AES_PROFF) StringCchPrintf(szInfosText, MAX_PATH, TEXT("ODSZYFROWYWANIE PROFESJONALNE: -> \"%s\" >>>>>> \"%s\""),
-						GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE);
+					if(GLOBAL_TYPE_AES_PROFF)
+					{
+						if(GLOBAL_AES_VERSION == enListTypeAES::enListTypeAES_CBC_HMAC)
+						{
+							StringCchPrintf(szInfosText, MAX_PATH, TEXT("ODSZYFROWYWANIE PROFESJONALNE AES-CBC + HMAC: -> \"%s\" >>>>>> \"%s\""),
+								GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE);
+						}
+						else if(GLOBAL_AES_VERSION == enListTypeAES::enListTypeAES_GCM_TAG)
+						{
+							StringCchPrintf(szInfosText, MAX_PATH, TEXT("ODSZYFROWYWANIE PROFESJONALNE AES-GCM + TAG: -> \"%s\" >>>>>> \"%s\""),
+								GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE);
+						}
+					}
 					else StringCchPrintf(szInfosText, MAX_PATH, TEXT("ODSZYFROWYWANIE UPROSZCZONE: -> \"%s\" >>>>>> \"%s\""),
 						GLOBAL_INPUTFILE, GLOBAL_OUTPUTFILE);
 				}
@@ -1501,7 +1656,7 @@ bool __fastcall LoadHistoryFile()
 	HRESULT hr = PathCchCombine(szPathIniFile, MAX_PATH, GLOBAL_GETEXEDIR, GLOBAL_HISTORY_FILE);
 	if(!SUCCEEDED(hr)) return false;
 	// Otwórz plik do odczytu.
-	hFile = CreateFileW(szPathIniFile,
+	hFile = CreateFile(szPathIniFile,
 		GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
 		FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (hFile == INVALID_HANDLE_VALUE) {CleanupLHistory(); return false;}
@@ -1523,7 +1678,7 @@ bool __fastcall LoadHistoryFile()
 	MultiByteToWideChar(CP_UTF8, 0, reinterpret_cast<LPCSTR>(pLBuffer), dwRead, pWide, wideLen);
 	pWide[wideLen] = L'\0';
 	// Ustaw tekst w kontrolce EDIT.
-	SetWindowTextW(GLOBAL_HWND_HMEMORYTEXTINFOS, pWide);
+	SetWindowText(GLOBAL_HWND_HMEMORYTEXTINFOS, pWide);
 
 	CleanupLHistory();
 	return true;

@@ -12,6 +12,7 @@ ICON_MAIN_ICON ICON "MainIcon.ico"
 OPEN_FILE ICON "gfx\\OtworzPlik.ico"
 RUN_PROCESS ICON "gfx\\Start.ico"
 SAVE_CONFIG ICON "gfx\\ZapisKonfiguracji.ico"
+OPEN_USE_CONFIG ICON "gfx\\OdczytKonfiguracji.ico"
 SAVE_HISTORY ICON "gfx\\ZapiszHistorie.ico"
 OPEN_DIR ICON "gfx\\OtworzKatalog.ico"
 CLEAR_HISTORY ICON "gfx\\KasowanieHistorii.ico"
@@ -32,8 +33,8 @@ FONT 11, "Segoe UI"
 }
 
 1 VERSIONINFO
-FILEVERSION 0,9,16,98
-PRODUCTVERSION 0,9,16,98
+FILEVERSION 0,9,21,258
+PRODUCTVERSION 0,9,21,258
 FILEOS VOS__WINDOWS32
 FILETYPE VFT_APP
 {
@@ -43,12 +44,12 @@ FILETYPE VFT_APP
     {
       VALUE "CompanyName", COMPANY_NAME
       VALUE "FileDescription", "AESManager"
-      VALUE "FileVersion", "0.9.16.98"
+      VALUE "FileVersion", "0.9.21.258"
       VALUE "InternalName", "AESManager"
       VALUE "LegalCopyright", "GNU"
       VALUE "OriginalFilename", "AESManager"
       VALUE "ProductName", "AESManager"
-      VALUE "ProductVersion", "0.9.16.98"
+      VALUE "ProductVersion", "0.9.21.258"
       VALUE "Comments", "AESManager"
     }
   }

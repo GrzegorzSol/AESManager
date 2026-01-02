@@ -1,7 +1,7 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: GsAESCrypt.cpp
-// Data: 26.12.2025, 07:26
+// Data: 1.01.2026, 06:04
 
 //
 // Created by GrzegorzS on 17.10.2025.
@@ -13,24 +13,92 @@
 #include <wincrypt.h>
 #include <Strsafe.h>
 
-#define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
+//#define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
 
-//---------------------------------------------------------------------------
-// Klas:	GsAESContext
-// Cel:		Zwalnianie zasobów oraz sprzątanie w klasie GsAESPro.
-//				Klasa dotyczy metod: GsAESProCryptFile() i GsAESProDecryptFile().
-// Uwagi:
-//---------------------------------------------------------------------------
-static GsAESHeader Gl_GsAESHeader; // Struktura nagłówka
-//=========================== METODY PRYWATNE POMOCNICZE ====================
+extern LPCWSTR GS_StringListAESTypes[];
+static GsAESHeader Gl_GsAESHeader;
 
-//---------------------------------------------------------------------------
-// Klas:	GsAESBasic
-// Cel:		Proste szyfrowanie pliku z KEY i IV, ale bez Salt.
-// Uwagi:	Przy niezmienionym haśle nagłówki zakodowanych plików są
-//				identyczne.
-//---------------------------------------------------------------------------
+///============================= METODY POMOCNICZE ==========================
+__fastcall TCHAR *GsAESFunEncodeBase64(LPCWSTR lpcszPassword)
+/**
+	OPIS METOD(FUNKCJI): Szyfrowanie tekstu za pomocą Base64.
+	OPIS ARGUMENTÓW: [in] - LPCWSTR pszPassword-Tekst do zakodowania.
+	OPIS ZMIENNYCH:
+	UWAGI: Bufor wynikowy, pszOut należy zwolnić przez HeapFree(GetProcessHeap(),0,pszOut).
+*/
+{
+	TCHAR *pszOut=nullptr;
+	DWORD DOut=0;
+	int iUtf8=0;
+	BYTE* pBUtf8=nullptr;
 
+	if(!lpcszPassword) return nullptr; // AI [23-12-2025]
+	auto CleanupCryptBase64 = [&]()
+	/**
+		OPIS METOD(FUNKCJI): Funkcja zwalniająca zarezerwowane zasoby podczas błędu
+												 lub zakończenia nadrzędnej funkcji typu lambda
+	*/
+	{
+		if(pBUtf8) {HeapFree(GetProcessHeap(), 0, pBUtf8); pBUtf8 = nullptr;}
+	};
+
+	// Konwersja do UTF-8 bajtów
+	iUtf8 = WideCharToMultiByte(CP_UTF8, 0, lpcszPassword, -1, nullptr, 0, nullptr, nullptr);
+	pBUtf8 = static_cast<BYTE*>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, iUtf8));
+	if(!pBUtf8) {CleanupCryptBase64(); return nullptr;}
+	WideCharToMultiByte(CP_UTF8, 0, lpcszPassword, -1, reinterpret_cast<LPSTR>(pBUtf8), iUtf8, nullptr, nullptr);
+	// Najpierw sprawdzamy wymaganą długość.
+	if(!CryptBinaryToString(pBUtf8, iUtf8 - 1, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, nullptr, &DOut))
+		{CleanupCryptBase64(); return nullptr;}
+	// Alokujemy bufor
+	pszOut = static_cast<TCHAR*>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, DOut * sizeof(TCHAR)));
+	if(!pszOut) {CleanupCryptBase64(); return nullptr;}
+	// Właściwe kodowanie
+	if(!CryptBinaryToString(pBUtf8, iUtf8 - 1,CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, pszOut, &DOut))
+	{CleanupCryptBase64(); return nullptr;}
+
+	CleanupCryptBase64();
+	return pszOut;
+}
+//---------------------------------------------------------------------------
+__fastcall bool GsAESFunDecodeBase64(LPCWSTR lpcszPasswordBase64, TCHAR *pszOut, const DWORD cDOutSize)
+/**
+	OPIS METOD(FUNKCJI): Odszyfrowanie tekstu za pomocą Base64.
+	OPIS ARGUMENTÓW: [in]LPCWSTR pszPasswordBase64 - Zakodowany ciąg.
+					 [out]TCHAR *pszOut-Wskażnik na zdekodowane hasło.
+					 [in]DWORD OutSize-Wielkość pszOut.
+	OPIS ZMIENNYCH:
+*/
+{
+	DWORD DBinary=0, DSkip=0, DFlags=0;
+	BYTE *pBData=nullptr;
+
+	if(!lpcszPasswordBase64 || !pszOut || cDOutSize == 0) return false; // AI [23-12-2025]
+	auto CleanupDecryptBase64 = [&]()
+	/**
+		OPIS METOD(FUNKCJI): Funkcja zwalniająca zarezerwowane zasoby podczas błędu
+												 lub zakończenia nadrzędnej funkcji typu lambda
+	*/
+	{
+		if(pBData) {HeapFree(GetProcessHeap(), 0, pBData); pBData = nullptr;}
+	};
+
+	// Najpierw sprawdzamy wymaganą długość bufora.
+	if (!CryptStringToBinary(lpcszPasswordBase64, 0, CRYPT_STRING_BASE64, nullptr,&DBinary,
+		&DSkip, &DFlags)) return false;
+	// Alokujemy bufor
+	pBData = static_cast<BYTE*>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, DBinary));
+	if(!pBData) {CleanupDecryptBase64(); return false;}
+	// Właściwe dekodowanie
+	if (!CryptStringToBinary(lpcszPasswordBase64, 0, CRYPT_STRING_BASE64, pBData, &DBinary,
+		&DSkip,&DFlags)) {CleanupDecryptBase64(); return false;}
+	// Wyświetlenie jako tekst (UTF-8 → WideChar).
+	if(MultiByteToWideChar(CP_UTF8, 0, reinterpret_cast<LPCSTR>(pBData), DBinary, pszOut, cDOutSize) == 0) return false; // AI [23-12-2025]
+
+	CleanupDecryptBase64();
+	return true;
+}
+//---------------------------------------------------------------------------
 __fastcall GsStoreData GsAESFunComputeSHAHash(LPCWSTR lpcszText, const enSizeSHABit enTypeHash)
 /**
 	OPIS METOD(FUNKCJI): Oblicza skrót SHA-256 lub SHA-512 dla tekstu Unicode (LPCWSTR)
@@ -197,6 +265,48 @@ __fastcall GsStoreData GsAESFunComputeSHAHash(LPCWSTR lpcszText, const enSizeSHA
 	return gsResult;
 }
 //---------------------------------------------------------------------------
+__fastcall bool GsValidateHeader(const GsAESHeader &MyAESHeader, const DWORD cDKeyLen, const BYTE cBVersion)
+/**
+	OPIS METOD(FUNKCJI): Weryfikacja nagłówka pliku zaszyfrowanego
+	OPIS ARGUMENTÓW: const GsAESHeader &MyAESHeader-Adres struktury nagłówka.
+									 const DWORD cDKeyLen-Długość klucza.
+									 const BYTE cBVersion-Odczyt wersji funkcji szyfrującej.
+	OPIS ZMIENNYCH:
+	OPIS WYNIKU METODY(FUNKCJI):
+	UWAGI:
+*/
+{
+	bool bResult = true;
+
+	// Weryfikacja Magic i wersji.
+	if(memcmp(Gl_GsAESHeader.Magic, MyAESHeader.Magic, sizeof(Gl_GsAESHeader.Magic)) != 0)
+	{
+		MessageBox(nullptr, TEXT("Plik nie został zaszyfrowany w tej aplikacji (Magic)!"), TEXT("Błąd"), MB_ICONERROR);
+		return false;
+	}
+	// Sprawdzanie poprawności odczytanego nagłówka
+	if (MyAESHeader.Version != cBVersion)
+	{
+		MessageBox(nullptr, TEXT("Nieobsługiwana wersja formatu."), TEXT("Błąd"), MB_ICONERROR);
+		return false;
+	}
+	// Opcjonalnie: weryfikacja BSizeKey zgodnie z enAESKey
+	if(MyAESHeader.BSizeKey != cDKeyLen)
+	{
+		MessageBox(nullptr, TEXT("Plik zaszyfrowany innym trybem lub innym rozmiarem klucza."), TEXT("Błąd"), MB_ICONERROR);
+		return false;
+	}
+
+	return bResult;
+}
+//---------------------------------------------------------------------------
+//---------------------------------------------------------------------------
+// Klas:	GsAESBasic
+// Cel:		Proste szyfrowanie pliku z KEY i IV, ale bez Salt.
+// Uwagi:	Przy niezmienionym haśle nagłówki zakodowanych plików są
+//				identyczne.
+//---------------------------------------------------------------------------
+//--------------------------------- Metody publiczne ------------------------
 __fastcall bool GsAESBasic::_GsAESBasicGenerateKeyAndIV_128(const GsStoreData &gsHash, GsStoreData &gsKey, GsStoreData &gsIV)
 /**
 	OPIS METOD(FUNKCJI): Funkcja do generowania klucza AES-128 i IV z hasła
@@ -256,6 +366,7 @@ __fastcall bool GsAESBasic::_GsAESBasicGenerateKeyAndIV_256(const GsStoreData &g
 	return bResult;
 }
 //---------------------------------------------------------------------------
+//--- Metody prywatne ---
 __fastcall bool GsAESBasic::GsAESBasicCryptFile(const GsStoreData &gsHash, LPCWSTR lpcszFileInput, LPCWSTR lpcszFileOutput, const enSizeKey enAESKey)
 /**
 	OPIS METOD(FUNKCJI): Właściwe szyfrowanie lub odszyfrowywania.
@@ -276,15 +387,9 @@ __fastcall bool GsAESBasic::GsAESBasicCryptFile(const GsStoreData &gsHash, LPCWS
 
 	// Walidacja argumentów
 	if (!gsHash.pBData || gsHash.DDataLen == 0 || !lpcszFileInput || !lpcszFileOutput) return false;
-	MyAESHeader.Version = CPB_VERSIONCRYPTBASIC;
 
 	bool bResult = false;
-	GsStoreData gsKEY = { nullptr, 0 },
-				gsIV = {nullptr, 0},
-				gsPlainText = { nullptr, 0 },
-				gsCipherText = { nullptr, 0 },
-				gsFullData = { nullptr, 0 },
-				gsCopyIV = { nullptr, 0 };
+	GsStoreData gsKEY, gsIV, gsPlainText, gsCipherText, gsFullData, gsCopyIV;
 
 	auto CleanupCrypt = [&]()
 	/**
@@ -309,6 +414,8 @@ __fastcall bool GsAESBasic::GsAESBasicCryptFile(const GsStoreData &gsHash, LPCWS
 		//---
 		default: bResult = false;
 	}
+	MyAESHeader.Version = CPB_VERSIONCRYPTBASIC;
+	MyAESHeader.BSizeKey = gsKEY.DDataLen;
 
 	if(bResult)
 	{
@@ -443,11 +550,7 @@ __fastcall bool GsAESBasic::GsAESBasicDecryptFile(const GsStoreData &gsHash, LPC
 	LARGE_INTEGER LIsizeFileInput;
 	DWORD DRead=0, dwWritten=0;
 	bool bResult = false;
-	GsStoreData gsKEY = { nullptr, 0 },
-				gsIV = {nullptr, 0},
-				gsPlainText = { nullptr, 0 },
-				gsFileIV = { nullptr, 0 },
-				gsEncryptedText = { nullptr, 0 };
+	GsStoreData gsKEY, gsIV, gsPlainText, gsFileIV, gsEncryptedText;
 	GsAESHeader MyAESHeader;
 
 	// Walidacja argumentów
@@ -511,10 +614,8 @@ __fastcall bool GsAESBasic::GsAESBasicDecryptFile(const GsStoreData &gsHash, LPC
 			return false;
 		}
 		// Porównanie odczytanego nagłówka ze wzorem.
-		if(memcmp(Gl_GsAESHeader.Magic, MyAESHeader.Magic, sizeof(Gl_GsAESHeader.Magic)) != 0)
+		if(!GsValidateHeader(MyAESHeader, gsKEY.DDataLen, CPB_VERSIONCRYPTBASIC))
 		{
-			MessageBox(nullptr, TEXT("Plik ten nie został zaszyfrowany w tej aplikacji!"), TEXT("Błąd"), MB_ICONERROR);
-			// Czyszczenie po sobie
 			CleanupDecrypt();
 			return false;
 		}
@@ -637,37 +738,35 @@ __fastcall bool GsAESBasic::GsAESBasicDecryptFile(const GsStoreData &gsHash, LPC
 	return bResult;
 }
 //---------------------------------------------------------------------------
-
 //---------------------------------------------------------------------------
 // Klas:	GsAESPro
-// Cel:		Szyfrowanie pliku z KEY, IV i Salt.
+// Cel:		Szyfrowanie pliku z KEY, IV, Salt i HMAC, dla wersji AES-CBC+HMAC
+//				Szyfrowanie, dla wersji AES-GCM+TAG
 // Uwagi:	Każdy nagłówek zaszyfrowanego pliku jest inny.
 //---------------------------------------------------------------------------
-
-__fastcall bool GsAESPro::GsAESProCryptFile(const GsStoreData &gsHash, LPCWSTR lpcszFileInput, LPCWSTR lpcszFileOutput, const enSizeKey enAESKey)
+//---------------------------- Metody publiczne -----------------------------
+// Szyfrowanie i deszyfrowanie metodą AES-CBC+HMAC
+__fastcall bool GsAESPro::GsAESPro_CBC_HMAC_CryptFile(const GsStoreData &gsHash, LPCWSTR lpcszFileInput, LPCWSTR lpcszFileOutput, const enSizeKey enAESKey)
 /**
 	OPIS METOD(FUNKCJI): Funkcja do generowania klucza AES-128 i IV z hasła
-	OPIS ARGUMENTÓW: [in] - const SHAResult &Hash - Wygenerowany hash z hasła w funkcji ComputeSHAHash().
+	OPIS ARGUMENTÓW: [in] - const GsStoreData &Hash - Wygenerowany hash z hasła w funkcji ComputeSHAHash().
 													LPCWSTR lpszFileInput-Ścieżka dostępu do pliku, który będzie zaszyfrowany
 													LPCWSTR lpszFileOutput-Ścieżka dostępu do zaszyfrowanego pliku
 	OPIS ZMIENNYCH:
-	OPIS WYNIKU METODY(FUNKCJI): Struktura SHAResult zawierająca 32 bajty, lub 64 bajty skrótu
+	OPIS WYNIKU METODY(FUNKCJI): Struktura GsStoreData zawierająca 32 bajty, lub 64 bajty skrótu
 	UWAGI:
 */
 {
 	bool bResult=false;
 	NTSTATUS status=1;
-	GsStoreData gsPlain={nullptr, 0};
+	GsStoreData gsPlain;
 	BCRYPT_ALG_HANDLE hKdf=nullptr;
 	BCRYPT_ALG_HANDLE hAes=nullptr;
 	BCRYPT_KEY_HANDLE hKey=nullptr;
 	BYTE *pBOutput=nullptr, *pBFinal=nullptr;
-	GsAESHeader MyAESHeader;
 
 	// Walidacja argumentów
 	if (!gsHash.pBData || gsHash.DDataLen == 0 || !lpcszFileInput || !lpcszFileOutput) return false;
-	// Wersja w nagłówku
-	MyAESHeader.Version = CPB_VERSIONCRYPTPROFF;
 
 	// Wybór algorytmu PRF
 	const DWORD cDKeyLen	 = (enAESKey == enSizeKey_128) ? CI_KEYLEN_128 : CI_KEYLEN_256;
@@ -677,6 +776,11 @@ __fastcall bool GsAESPro::GsAESProCryptFile(const GsStoreData &gsHash, LPCWSTR l
 	const LPCWSTR lpcszAlg = (enAESKey == enSizeKey_128) ? BCRYPT_SHA256_ALGORITHM : BCRYPT_SHA512_ALGORITHM;
 	// StringCchPrintf(Gl_szInfoDebug, glMaxIfoDebug, TEXT("PRF: %s, Długość hasha: %d"), prfAlg, Hash.cbDataLength);
 	// MessageBox(nullptr, Gl_szInfoDebug, TEXT("Informacja"), MB_ICONINFORMATION);
+
+	// Definiowanie nagłówka informacyjnego
+	GsAESHeader MyAESHeader;
+	MyAESHeader.Version = CPB_VERSIONCRYPTPROFF_CBC;
+	MyAESHeader.BSizeKey = cDKeyLen;
 
 	auto CleanupCryptPro = [&]()
 	/**
@@ -835,14 +939,14 @@ __fastcall bool GsAESPro::GsAESProCryptFile(const GsStoreData &gsHash, LPCWSTR l
 	*/
 }
 //---------------------------------------------------------------------------
-__fastcall bool GsAESPro::GsAESProDecryptFile(const GsStoreData &gsHash, LPCWSTR lpcszFileInput, LPCWSTR lpcszFileOutput, const enSizeKey enAESKey)
+__fastcall bool GsAESPro::GsAESPro_CBC_HMAC_DecryptFile(const GsStoreData &gsHash, LPCWSTR lpcszFileInput, LPCWSTR lpcszFileOutput, const enSizeKey enAESKey)
 /**
 	OPIS METOD(FUNKCJI): Odszyfrowuje plik AES-256 CBC z PBKDF2 (Hash jako „password bytes”)
-	OPIS ARGUMENTÓW: [in] - const SHAResult &Hash - Wygenerowany hash z hasła w funkcji ComputeSHAHash().
+	OPIS ARGUMENTÓW: [in] - const GsStoreData &Hash - Wygenerowany hash z hasła w funkcji ComputeSHAHash().
 													LPCWSTR lpcszFileInput-Ścieżka dostępu do pliku, który będzie zaszyfrowany
 													LPCWSTR lpcszFileOutput-Ścieżka dostępu do zaszyfrowanego pliku
 	OPIS ZMIENNYCH:
-	OPIS WYNIKU METODY(FUNKCJI): Struktura SHAResult zawierająca 32 bajty, lub 64 bajty skrótu
+	OPIS WYNIKU METODY(FUNKCJI): Struktura GsStoreData zawierająca 32 bajty, lub 64 bajty skrótu
 															 TRUE: sukces, plik odszyfrowany i zapisany
 															 FALSE: błąd
 	UWAGI:
@@ -884,7 +988,6 @@ __fastcall bool GsAESPro::GsAESProDecryptFile(const GsStoreData &gsHash, LPCWSTR
 	*/
 	{
 		if(hKey) {BCryptDestroyKey(hKey); hKey = nullptr;}
-		//if(gsFullReadFile.pbData) {HeapFree(GetProcessHeap(), 0, gsFullReadFile.pbData); gsFullReadFile.pbData = nullptr;}
 		if(pBPlain)
 		{
 			SecureZeroMemory(pBPlain, DPlainLen);
@@ -913,11 +1016,10 @@ __fastcall bool GsAESPro::GsAESProDecryptFile(const GsStoreData &gsHash, LPCWSTR
 	}
 	// Odczyt nagłówka
 	memcpy(&MyAESHeader, gsFullReadFile.pBData, sizeof(GsAESHeader));
-	// Porównanie odczytanego nagłówka ze wzorem.
-	if(memcmp(Gl_GsAESHeader.Magic, MyAESHeader.Magic, sizeof(Gl_GsAESHeader.Magic)) != 0)
+
+	// Sprawdzanie poprawności odczytanego nagłówka
+	if(!GsValidateHeader(MyAESHeader, cDKeyLen, CPB_VERSIONCRYPTPROFF_CBC))
 	{
-		MessageBox(nullptr, TEXT("Plik ten nie został zaszyfrowany w tej aplikacji!"), TEXT("Błąd"), MB_ICONERROR);
-		// Czyszczenie po sobie
 		CleanupDecryptPro();
 		return false;
 	}
@@ -1044,6 +1146,515 @@ __fastcall bool GsAESPro::GsAESProDecryptFile(const GsStoreData &gsHash, LPCWSTR
 	return bResult;
 }	
 //---------------------------------------------------------------------------
+// Szyfrowanie i deszyfrowanie metodą AES-GCM+TAG
+__fastcall bool GsAESPro::GsAESPro_GCM_TAG_CryptFile(const GsStoreData &gsHash, LPCWSTR lpcszFileInput, LPCWSTR lpcszFileOutput, const enSizeKey enAESKey)
+/**
+OPIS METODY:
+				Szyfruje plik wejściowy do pliku wyjściowego z użyciem:
+					- PBKDF2 (Hash + Salt + Iteracje) -> Key,
+					- AES-GCM (szyfrowanie + autentykacja),
+					- nagłówka GsAESHeader jako AAD (Additional Authenticated Data).
+
+		FORMAT PLIKU WYJŚCIOWEGO:
+				[ GsAESHeader ]  - 8 bajtów (Magic, Version, bReserved[3])
+				[ Salt ]         - 16 bajtów (PBKDF2)
+				[ Nonce ]        - 12 bajtów (IV/Nonce dla GCM)
+				[ Ciphertext ]   - N bajtów
+				[ Tag ]          - 16 bajtów (TAG GCM)
+
+		ARGUMENTY:
+				[in] Hash            - gotowy wynik funkcji GsAESFunComputeSHAHash (hash hasła).
+				[in] lpszFileInput   - ścieżka pliku wejściowego (dane jawne).
+				[in] lpszFileOutput  - ścieżka pliku wyjściowego (dane zaszyfrowane).
+				[in] enAESKey        - rozmiar klucza AES (enSizeKey_128 lub enSizeKey_256).
+
+		UWAGI:
+				- W przypadku błędu metoda zwraca false i wyświetla komunikat MessageBox.
+				- Pamięć klucza i materiału wrażliwego jest wymazywana przez SecureZeroMemory.
+*/
+{
+	bool bResult=false;
+	NTSTATUS status = 1;
+	GsStoreData gsPlain; // Dane jawne z pliku źródłowego.
+
+	BCRYPT_ALG_HANDLE hKdf = nullptr;   // Uchwyt do PBKDF2 (SHA-256/512).
+	BCRYPT_ALG_HANDLE hAes = nullptr;   // Uchwyt do AES-GCM.
+	BCRYPT_KEY_HANDLE hKey = nullptr;   // Uchwyt do klucza AES.
+
+	// Parametry GCM
+	BYTE BNonce[12] = {};                // Zalecany rozmiar Nonce dla GCM: 96 bitów.
+	BYTE BTag[16]   = {};                // TAG autentykacji (128 bitów).
+
+
+	// Walidacja argumentów wejściowych
+	if (!gsHash.pBData || gsHash.DDataLen == 0 || !lpcszFileInput || !lpcszFileOutput)
+		return false;
+
+	size_t sInFileLen = 0, sFileOut = 0;
+	if (FAILED(StringCchLength(lpcszFileInput, MAX_PATH, &sInFileLen)) ||
+			FAILED(StringCchLength(lpcszFileOutput, MAX_PATH, &sFileOut)))
+	{
+		MessageBox(nullptr, TEXT("Nieprawidłowa ścieżka pliku!"), TEXT("Błąd"), MB_ICONERROR);
+		return false;
+	}
+
+	// Parametry PBKDF2 -> Key
+	const DWORD cDKeyLen = (enAESKey == enSizeKey_128) ? CI_KEYLEN_128 : CI_KEYLEN_256;
+	const DWORD cDDerived = cDKeyLen;   // Tylko klucz; IV/Nonce generowane osobno.
+	BYTE *pBDerived = static_cast<BYTE*>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, cDDerived));
+	if(!pBDerived) return false;
+
+	BYTE *pBKey = pBDerived;           // Klucz AES (16B lub 32B).
+	BYTE *pBOutFile = nullptr;         // Bufor wyjściowy (cały plik).
+	// Definiowanie nagłówka informacyjnego
+	GsAESHeader MyAESHeader;           // Nagłówek pliku.
+	MyAESHeader.Version = CPB_VERSIONCRYPTPROFF_GCM;
+	MyAESHeader.BSizeKey = cDKeyLen;
+
+	const LPCWSTR lpcszAlg = (enAESKey == enSizeKey_128) ? BCRYPT_SHA256_ALGORITHM : BCRYPT_SHA512_ALGORITHM;
+	BYTE BSalt[CI_SIZESALT] = {};       // Salt PBKDF2 (16 bajtów)
+
+	auto CleanupGcmCrypt = [&]()
+	{
+		if(hKey) {BCryptDestroyKey(hKey); hKey = nullptr;}
+		if(hAes) {BCryptCloseAlgorithmProvider(hAes, 0); hAes = nullptr;}
+		if(hKdf) {BCryptCloseAlgorithmProvider(hKdf, 0); hKdf = nullptr;}
+
+		if(pBDerived)
+		{
+			SecureZeroMemory(pBDerived, cDDerived);
+			HeapFree(GetProcessHeap(), 0, pBDerived);
+			pBDerived = nullptr;
+		}
+
+		if(pBOutFile)
+		{
+			HeapFree(GetProcessHeap(), 0, pBOutFile);
+			pBOutFile = nullptr;
+		}
+	};
+
+	// 1) Wczytanie całego pliku wejściowego do pamięci.
+	if (!GsReadDataFromFile(lpcszFileInput, &gsPlain))
+	{
+		MessageBox(nullptr, TEXT("Błąd odczytu pliku wejściowego!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmCrypt();
+		return false;
+	}
+
+	// 2) Generowanie Salt (16 bajtów) dla PBKDF2.
+	if (BCryptGenRandom(nullptr, BSalt, sizeof(BSalt), BCRYPT_USE_SYSTEM_PREFERRED_RNG) != 0)
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptGenRandom (BSalt)!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmCrypt();
+		return false;
+	}
+
+	// 3) PBKDF2: Hash + Salt + Iteracje -> Key (16B lub 32B)
+	status = BCryptOpenAlgorithmProvider(&hKdf, lpcszAlg, MS_PRIMITIVE_PROVIDER, BCRYPT_ALG_HANDLE_HMAC_FLAG);
+	if (!BCRYPT_SUCCESS(status))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptOpenAlgorithmProvider (PBKDF2)!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmCrypt();
+		return false;
+	}
+
+	status = BCryptDeriveKeyPBKDF2(hKdf, (PUCHAR)gsHash.pBData, (ULONG)gsHash.DDataLen,
+				(PUCHAR)BSalt, (ULONG)sizeof(BSalt), CUL_ITERATIONS,
+				(PUCHAR)pBDerived, (ULONG)cDDerived, 0);
+	BCryptCloseAlgorithmProvider(hKdf, 0); hKdf = nullptr;
+	if (!BCRYPT_SUCCESS(status))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptDeriveKeyPBKDF2!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmCrypt();
+		return false;
+	}
+
+	// 4) Generowanie Nonce (12 bajtów) dla GCM.
+	if (BCryptGenRandom(nullptr, BNonce, sizeof(BNonce), BCRYPT_USE_SYSTEM_PREFERRED_RNG) != 0)
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptGenRandom (Nonce)!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmCrypt();
+		return false;
+	}
+
+	// 5) Otwarcie algorytmu AES w trybie GCM.
+	status = BCryptOpenAlgorithmProvider(&hAes, BCRYPT_AES_ALGORITHM, MS_PRIMITIVE_PROVIDER, 0);
+	if (!BCRYPT_SUCCESS(status))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptOpenAlgorithmProvider (AES)!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmCrypt();
+		return false;
+	}
+
+	status = BCryptSetProperty(hAes, BCRYPT_CHAINING_MODE, (PUCHAR)BCRYPT_CHAIN_MODE_GCM,
+			 (ULONG)(sizeof(WCHAR) * (lstrlen(BCRYPT_CHAIN_MODE_GCM) + 1)), 0);
+	if (!BCRYPT_SUCCESS(status))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptSetProperty (GCM)!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmCrypt();
+		return false;
+	}
+
+	// 6) Utworzenie klucza symetrycznego z pBKey.
+	status = BCryptGenerateSymmetricKey(hAes, &hKey, nullptr, 0,
+			(PUCHAR)pBKey, cDKeyLen, 0);
+	if (!BCRYPT_SUCCESS(status))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptGenerateSymmetricKey!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmCrypt();
+		return false;
+	}
+
+	// 7) Przygotowanie struktury BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO dla GCM.
+	BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO authInfo;
+	BCRYPT_INIT_AUTH_MODE_INFO(authInfo);
+	authInfo.pbNonce  = BNonce;
+	authInfo.cbNonce  = sizeof(BNonce);
+	authInfo.pbAuthData  = reinterpret_cast<PUCHAR>(&MyAESHeader);
+	authInfo.cbAuthData  = sizeof(GsAESHeader);
+	authInfo.pbTag    = BTag;
+	authInfo.cbTag    = sizeof(BTag);
+	authInfo.pbMacContext = nullptr;
+	authInfo.cbMacContext = 0;
+	authInfo.dwFlags      = 0;
+
+	// 8) Zapytanie o rozmiar bufora dla ciphertext.
+	ULONG ULCipher = 0;
+	status = BCryptEncrypt(hKey, (PUCHAR)gsPlain.pBData, gsPlain.DDataLen, &authInfo,
+			nullptr, 0,          // IV nie jest używane w GCM, wszystko jest w authInfo.pbNonce
+			nullptr, 0, &ULCipher,
+			0);                  // BCRYPT_BLOCK_PADDING nie jest używane w GCM
+	if (!BCRYPT_SUCCESS(status) || ULCipher == 0)
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptEncrypt (zapytanie o rozmiar)!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmCrypt();
+		return false;
+	}
+
+	// 9) Alokacja bufora na ciphertext.
+	BYTE *pBCipher = static_cast<BYTE*>(HeapAlloc(GetProcessHeap(), 0, ULCipher));
+	if(!pBCipher)
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji HeapAlloc (ciphertext)!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmCrypt();
+		return false;
+	}
+
+	// 10) Właściwe szyfrowanie AES-GCM (Plain -> Cipher + Tag).
+	ULONG ULOut = 0;
+	status = BCryptEncrypt(
+			hKey, (PUCHAR)gsPlain.pBData, gsPlain.DDataLen, &authInfo, nullptr, 0,
+			pBCipher, ULCipher, &ULOut, 0);
+	if(!BCRYPT_SUCCESS(status) || ULOut != ULCipher)
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptEncrypt (GCM)!"), TEXT("Błąd"), MB_ICONERROR);
+		HeapFree(GetProcessHeap(), 0, pBCipher); pBCipher = nullptr;
+		CleanupGcmCrypt();
+		return false;
+	}
+
+	// 11) Złożenie kompletnej struktury pliku:
+	//     [Header][Salt][Nonce][Ciphertext][Tag]
+	const DWORD cbFileTotal =
+			sizeof(GsAESHeader) +
+			sizeof(BSalt) +
+			sizeof(BNonce) +
+			ULCipher +
+			sizeof(BTag);
+
+	pBOutFile = static_cast<BYTE*>(HeapAlloc(GetProcessHeap(), 0, cbFileTotal));
+	if(!pBOutFile)
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji HeapAlloc (plik)!"), TEXT("Błąd"), MB_ICONERROR);
+		HeapFree(GetProcessHeap(), 0, pBCipher); pBCipher = nullptr;
+		CleanupGcmCrypt();
+		return false;
+	}
+
+	BYTE *pCur = pBOutFile;
+
+	memcpy(pCur, &MyAESHeader, sizeof(GsAESHeader));
+	pCur += sizeof(GsAESHeader);
+	memcpy(pCur, BSalt, sizeof(BSalt));
+	pCur += sizeof(BSalt);
+	memcpy(pCur, BNonce, sizeof(BNonce));
+	pCur += sizeof(BNonce);
+	memcpy(pCur, pBCipher, ULCipher);
+	pCur += ULCipher;
+	memcpy(pCur, BTag, sizeof(BTag));
+	pCur += sizeof(BTag);
+
+	// pCur - pOutFile powinno być równe cbFileTotal.
+	// Można dodać asercję w debug.
+
+	HeapFree(GetProcessHeap(), 0, pBCipher);
+	pBCipher = nullptr;
+
+	// 12) Zapis do pliku wyjściowego.
+	if(!GsWriteDataToFile(lpcszFileOutput, pBOutFile, cbFileTotal))
+	{
+		MessageBox(nullptr, TEXT("Błąd zapisu zaszyfrowanych danych (AES-GCM)!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmCrypt();
+		return false;
+	}
+
+	CleanupGcmCrypt();
+	bResult = true;
+	return bResult;
+}
+//---------------------------------------------------------------------------
+__fastcall bool GsAESPro::GsAESPro_GCM_TAG_DecryptFile(const GsStoreData &gsHash, LPCWSTR lpcszFileInput, LPCWSTR lpcszFileOutput, const enSizeKey enAESKey)
+/**
+OPIS METODY:
+				Odszyfrowuje plik zaszyfrowany metodą GsAESProGcmCryptFile().
+				Sprawdza integralność i autentyczność danych na podstawie TAG (AES-GCM).
+
+		FORMAT OCZEKIWANEGO PLIKU:
+				[ GsAESHeader ]  - 8 bajtów (Magic, Version, bReserved[3])
+				[ Salt ]         - 16 bajtów (PBKDF2)
+				[ Nonce ]        - 12 bajtów
+				[ Ciphertext ]   - N bajtów
+				[ Tag ]          - 16 bajtów
+
+		ARGUMENTY:
+				[in] Hash            - gotowy wynik funkcji GsAESFunComputeSHAHash (hash hasła).
+				[in] lpcszFileInput   - ścieżka pliku wejściowego (dane zaszyfrowane).
+				[in] lpcszFileOutput  - ścieżka pliku wyjściowego (dane jawne).
+				[in] enAESKey        - rozmiar klucza AES (enSizeKey_128 lub enSizeKey_256).
+
+		UWAGI:
+				- Jeśli TAG jest nieprawidłowy (złe hasło lub plik uszkodzony),
+					metoda zwraca false i nie tworzy pliku wyjściowego.
+*/
+{
+	bool bResult=false;
+	NTSTATUS status = 1;
+	GsStoreData gsInFile = { nullptr, 0 }; // Cała zawartość pliku wejściowego.
+	BYTE *pBPlain = nullptr;              // Dane odszyfrowane (plaintext).
+	ULONG ULPlain = 0;
+
+	BCRYPT_ALG_HANDLE hKdf=nullptr;
+	BCRYPT_ALG_HANDLE hAes=nullptr;
+	BCRYPT_KEY_HANDLE hKey=nullptr;
+
+	if (!gsHash.pBData || gsHash.DDataLen == 0 || !lpcszFileInput || !lpcszFileOutput) return false;
+
+	size_t sInLen = 0, sOutLen = 0;
+	if (FAILED(StringCchLength(lpcszFileInput, MAX_PATH, &sInLen)) || FAILED(StringCchLength(lpcszFileOutput, MAX_PATH, &sOutLen)))
+	{
+		MessageBox(nullptr, TEXT("Nieprawidłowa ścieżka pliku!"), TEXT("Błąd"), MB_ICONERROR);
+		return false;
+	}
+
+	// Parametry PBKDF2
+	const DWORD cDKeyLen = (enAESKey == enSizeKey_128) ? CI_KEYLEN_128 : CI_KEYLEN_256;
+	const DWORD cDDerived = cDKeyLen;
+	BYTE *pBderived = static_cast<BYTE*>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, cDDerived));
+	if (!pBderived) return false;
+	BYTE *pBKey = pBderived;
+
+	GsAESHeader MyAESHeader;
+	BYTE BSalt[CI_SIZESALT] = {};
+	BYTE BNonce[12] = {};
+	BYTE BTag[16]   = {};
+
+	auto CleanupGcmDecrypt = [&]()
+	{
+		if(hKey) {BCryptDestroyKey(hKey); hKey = nullptr;}
+		if(hAes) {BCryptCloseAlgorithmProvider(hAes, 0); hAes = nullptr;}
+		if(hKdf) {BCryptCloseAlgorithmProvider(hKdf, 0); hKdf = nullptr;}
+
+		if(pBPlain)
+		{
+			SecureZeroMemory(pBPlain, ULPlain); // nadmiarowo
+			HeapFree(GetProcessHeap(), 0, pBPlain); pBPlain = nullptr;
+		}
+
+		if(pBderived)
+		{
+			SecureZeroMemory(pBderived, cDDerived);
+			HeapFree(GetProcessHeap(), 0, pBderived); pBderived = nullptr;
+		}
+	};
+
+	// 1) Wczytanie całego pliku wejściowego.
+	if(!GsReadDataFromFile(lpcszFileInput, &gsInFile))
+	{
+		MessageBox(nullptr, TEXT("Błąd odczytu pliku wejściowego (AES-GCM)!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmDecrypt();
+		return false;
+	}
+
+	// Minimalny rozmiar:
+	// Header + Salt + Nonce + minCipher(1 bajt) + Tag
+	constexpr DWORD cDMinSize = sizeof(GsAESHeader) + CI_SIZESALT + sizeof(BNonce) + 1 + sizeof(BTag);
+
+	if(gsInFile.DDataLen < cDMinSize)
+	{
+		MessageBox(nullptr, TEXT("Plik jest zbyt krótki, aby był poprawnym plikiem GsAESProGCM."), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmDecrypt();
+		return false;
+	}
+
+	BYTE *pBCur = gsInFile.pBData;
+	DWORD cDRemain = gsInFile.DDataLen;
+
+	// 2) Odczyt nagłówka
+	memcpy(&MyAESHeader, pBCur, sizeof(GsAESHeader));
+	pBCur += sizeof(GsAESHeader);
+	cDRemain -= sizeof(GsAESHeader);
+
+	// Sprawdzanie poprawności odczytanego nagłówka
+	if(!GsValidateHeader(MyAESHeader, cDKeyLen, CPB_VERSIONCRYPTPROFF_GCM))
+	{
+		CleanupGcmDecrypt();
+		return false;
+	}
+
+	// 3) Odczyt Salt, Nonce, Tag, Ciphertext.
+	if(cDRemain < (CI_SIZESALT + sizeof(BNonce) + sizeof(BTag) + 1))
+	{
+		MessageBox(nullptr, TEXT("Plik uszkodzony (brak miejsca na Salt/Nonce/Tag)."), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmDecrypt();
+		return false;
+	}
+
+	memcpy(BSalt, pBCur, sizeof(BSalt));
+	pBCur += sizeof(BSalt);
+	cDRemain -= sizeof(BSalt);
+
+	memcpy(BNonce, pBCur, sizeof(BNonce));
+	pBCur += sizeof(BNonce);
+	cDRemain -= sizeof(BNonce);
+
+	// Pozostałe dane: [Ciphertext][Tag]
+	if(cDRemain <= sizeof(BTag))
+	{
+		MessageBox(nullptr, TEXT("Plik uszkodzony (brak ciphertext)."), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmDecrypt();
+		return false;
+	}
+
+	const DWORD cDCipher = cDRemain - sizeof(BTag);
+	BYTE *pBCipher = pBCur;
+	pBCur += cDCipher;
+	cDRemain -= cDCipher;
+
+	memcpy(BTag, pBCur, sizeof(BTag));
+	pBCur += sizeof(BTag);
+	cDRemain -= sizeof(BTag);
+
+
+	// cbRemain powinno być 0 (zużyliśmy wszystko).
+	// Można dodać asercję w trybie debug.
+
+	// 4) PBKDF2: Hash + Salt + Iteracje -> Key
+	status = BCryptOpenAlgorithmProvider(&hKdf, (enAESKey == enSizeKey_128) ? BCRYPT_SHA256_ALGORITHM : BCRYPT_SHA512_ALGORITHM,
+			MS_PRIMITIVE_PROVIDER, BCRYPT_ALG_HANDLE_HMAC_FLAG);
+	if(!BCRYPT_SUCCESS(status))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptOpenAlgorithmProvider (PBKDF2)!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmDecrypt();
+		return false;
+	}
+
+	status = BCryptDeriveKeyPBKDF2(
+				hKdf,
+				(PUCHAR)gsHash.pBData, (ULONG)gsHash.DDataLen, (PUCHAR)BSalt, (ULONG)sizeof(BSalt),
+				CUL_ITERATIONS, (PUCHAR)pBderived, (ULONG)cDDerived, 0);
+	BCryptCloseAlgorithmProvider(hKdf, 0); hKdf = nullptr;
+
+	if(!BCRYPT_SUCCESS(status))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptDeriveKeyPBKDF2!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmDecrypt();
+		return false;
+	}
+
+	// 5) AES-GCM decrypt.
+	status = BCryptOpenAlgorithmProvider(&hAes, BCRYPT_AES_ALGORITHM, MS_PRIMITIVE_PROVIDER, 0);
+	if(!BCRYPT_SUCCESS(status))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptOpenAlgorithmProvider (AES)!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmDecrypt();
+		return false;
+	}
+
+	status = BCryptSetProperty(
+			hAes, BCRYPT_CHAINING_MODE, (PUCHAR)BCRYPT_CHAIN_MODE_GCM,
+			(ULONG)(sizeof(WCHAR) * (lstrlen(BCRYPT_CHAIN_MODE_GCM) + 1)), 0);
+	if(!BCRYPT_SUCCESS(status))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptSetProperty (GCM)!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmDecrypt();
+		return false;
+	}
+
+	status = BCryptGenerateSymmetricKey(hAes, &hKey, nullptr, 0,
+	(PUCHAR)pBKey, cDKeyLen, 0);
+	if(!BCRYPT_SUCCESS(status))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptGenerateSymmetricKey!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmDecrypt();
+		return false;
+	}
+
+	BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO authInfo;
+	BCRYPT_INIT_AUTH_MODE_INFO(authInfo);
+
+	authInfo.pbNonce = BNonce;
+	authInfo.cbNonce = sizeof(BNonce);
+	authInfo.pbAuthData = reinterpret_cast<PUCHAR>(&MyAESHeader);
+	authInfo.cbAuthData = sizeof(GsAESHeader);
+	authInfo.pbTag = BTag;
+	authInfo.cbTag = sizeof(BTag);
+	authInfo.pbMacContext = nullptr;
+	authInfo.cbMacContext = 0;
+	authInfo.dwFlags = 0;
+
+	// 6) Zapytanie o rozmiar plaintext.
+	status = BCryptDecrypt(hKey, pBCipher, cDCipher, &authInfo, nullptr, 0,
+	nullptr, 0, &ULPlain, 0);
+	if(!BCRYPT_SUCCESS(status) || ULPlain == 0)
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptDecrypt (zapytanie o rozmiar / TAG)!"), TEXT("Błąd weryfikacji"), MB_ICONERROR);
+		CleanupGcmDecrypt();
+		return false;
+	}
+
+	// 7) Alokacja bufora na dane odszyfrowane.
+	pBPlain = static_cast<BYTE*>(HeapAlloc(GetProcessHeap(), 0, ULPlain));
+	if(!pBPlain)
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji HeapAlloc (plaintext)!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmDecrypt();
+		return false;
+	}
+
+	ULONG ULOut = 0;
+	status = BCryptDecrypt(hKey, pBCipher, cDCipher, &authInfo, nullptr, 0,
+			pBPlain, ULPlain, &ULOut, 0);
+	if(!BCRYPT_SUCCESS(status))
+	{
+		MessageBox(nullptr, TEXT("Błąd funkcji BCryptDecrypt (GCM) - nieprawidłowe hasło lub TAG!"), TEXT("Błąd weryfikacji"), MB_ICONERROR);
+		CleanupGcmDecrypt();
+		return false;
+	}
+
+	// 8) Zapis danych odszyfrowanych do pliku.
+	if(!GsWriteDataToFile(lpcszFileOutput, pBPlain, ULOut))
+	{
+		MessageBox(nullptr, TEXT("Błąd zapisu danych odszyfrowanych (AES-GCM)!"), TEXT("Błąd"), MB_ICONERROR);
+		CleanupGcmDecrypt();
+		return false;
+	}
+
+	CleanupGcmDecrypt();
+	bResult = true;
+	return bResult;
+}
+//--- Metody prywatne ---
 __fastcall bool GsAESPro::_GsAESProComputeHMAC(const BYTE *pBKey, const DWORD DKeyLen, const BYTE *pcBData, const DWORD cDDataLen,
 	BYTE *pBhmacOut, DWORD DHmacOut)
 /**
@@ -1103,84 +1714,4 @@ __fastcall bool GsAESPro::_GsAESProComputeHMAC(const BYTE *pBKey, const DWORD DK
 	return BCRYPT_SUCCESS(status);
 }
 //---------------------------------------------------------------------------
-//============================== METODY POMOCNICZE ==========================
-__fastcall TCHAR *GsAESFunEncodeBase64(LPCWSTR lpcszPassword)
-/**
-	OPIS METOD(FUNKCJI): Szyfrowanie tekstu za pomocą Base64.
-	OPIS ARGUMENTÓW: [in] - LPCWSTR pszPassword-Tekst do zakodowania.
-	OPIS ZMIENNYCH:
-	UWAGI: Bufor wynikowy, pszOut należy zwolnić przez HeapFree(GetProcessHeap(),0,pszOut).
-*/
-{
-	TCHAR *pszOut=nullptr;
-	DWORD DOut=0;
-	int iUtf8=0;
-	BYTE* pBUtf8=nullptr;
 
-	if(!lpcszPassword) return nullptr; // AI [23-12-2025]
-	auto CleanupCryptBase64 = [&]()
-	/**
-		OPIS METOD(FUNKCJI): Funkcja zwalniająca zarezerwowane zasoby podczas błędu
-												 lub zakończenia nadrzędnej funkcji typu lambda
-	*/
-	{
-		if(pBUtf8) {HeapFree(GetProcessHeap(), 0, pBUtf8); pBUtf8 = nullptr;}
-	};
-
-	// Konwersja do UTF-8 bajtów
-	iUtf8 = WideCharToMultiByte(CP_UTF8, 0, lpcszPassword, -1, nullptr, 0, nullptr, nullptr);
-	pBUtf8 = static_cast<BYTE*>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, iUtf8));
-	if(!pBUtf8) {CleanupCryptBase64(); return nullptr;}
-	WideCharToMultiByte(CP_UTF8, 0, lpcszPassword, -1, reinterpret_cast<LPSTR>(pBUtf8), iUtf8, nullptr, nullptr);
-	// Najpierw sprawdzamy wymaganą długość.
-	if(!CryptBinaryToString(pBUtf8, iUtf8 - 1, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, nullptr, &DOut))
-		{CleanupCryptBase64(); return nullptr;}
-	// Alokujemy bufor
-	pszOut = static_cast<TCHAR*>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, DOut * sizeof(TCHAR)));
-	if(!pszOut) {CleanupCryptBase64(); return nullptr;}
-	// Właściwe kodowanie
-	if(!CryptBinaryToString(pBUtf8, iUtf8 - 1,CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, pszOut, &DOut))
-	{CleanupCryptBase64(); return nullptr;}
-
-	CleanupCryptBase64();
-	return pszOut;
-}
-//---------------------------------------------------------------------------
-__fastcall bool GsAESFunDecodeBase64(LPCWSTR lpcszPasswordBase64, TCHAR *pszOut, const DWORD cDOutSize)
-/**
-	OPIS METOD(FUNKCJI): Odszyfrowanie tekstu za pomocą Base64.
-	OPIS ARGUMENTÓW: [in]LPCWSTR pszPasswordBase64 - Zakodowany ciąg.
-					 [out]TCHAR *pszOut-Wskażnik na zdekodowane hasło.
-					 [in]DWORD OutSize-Wielkość pszOut.
-	OPIS ZMIENNYCH:
-*/
-{
-	DWORD DBinary=0, DSkip=0, DFlags=0;
-	BYTE *pBData=nullptr;
-
-	if(!lpcszPasswordBase64 || !pszOut || cDOutSize == 0) return false; // AI [23-12-2025]
-	auto CleanupDecryptBase64 = [&]()
-	/**
-		OPIS METOD(FUNKCJI): Funkcja zwalniająca zarezerwowane zasoby podczas błędu
-												 lub zakończenia nadrzędnej funkcji typu lambda
-	*/
-	{
-		if(pBData) {HeapFree(GetProcessHeap(), 0, pBData); pBData = nullptr;}
-	};
-
-	// Najpierw sprawdzamy wymaganą długość bufora.
-	if (!CryptStringToBinary(lpcszPasswordBase64, 0, CRYPT_STRING_BASE64, nullptr,&DBinary,
-		&DSkip, &DFlags)) return false;
-	// Alokujemy bufor
-	pBData = static_cast<BYTE*>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, DBinary));
-	if(!pBData) {CleanupDecryptBase64(); return false;}
-	// Właściwe dekodowanie
-	if (!CryptStringToBinary(lpcszPasswordBase64, 0, CRYPT_STRING_BASE64, pBData, &DBinary,
-		&DSkip,&DFlags)) {CleanupDecryptBase64(); return false;}
-	// Wyświetlenie jako tekst (UTF-8 → WideChar).
-	if(MultiByteToWideChar(CP_UTF8, 0, reinterpret_cast<LPCSTR>(pBData), DBinary, pszOut, cDOutSize) == 0) return false; // AI [23-12-2025]
-
-	CleanupDecryptBase64();
-	return true;
-}
-//---------------------------------------------------------------------------

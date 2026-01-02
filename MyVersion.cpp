@@ -1,7 +1,7 @@
 ﻿// Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: MyVersion.cpp
-// Data: 26.12.2025, 07:26
+// Data: 1.01.2026, 06:04
 
 /*
 Biblioteka wspólnych metod dla wszystkich klas i modułów aplikacji. Główną klasą jest klasa Library całkowicie publiczna i statyczna.
@@ -38,31 +38,31 @@ TCHAR *MyVersion::GetInfo(TCHAR *InfoItem)
 	static TCHAR szResult[256] = {0};
 	TCHAR szFullPath[256];
 	TCHAR szGetName[256];
-	LPWSTR lpVersion;				 // String pointer to Item text
-	DWORD dwVerInfoSize,		// Size of version information block
-			dwVerHnd=0;				 // An 'ignored' parameter, always '0'
-	UINT uVersionLen;
+	LPWSTR lpszVersion;				 // String pointer to Item text
+	DWORD DVerInfoSize,		// Size of version information block
+			DVerHnd=0;				 // An 'ignored' parameter, always '0'
+	UINT UIVersionLen;
 	BOOL bRetCode;
 
 	GetModuleFileNameW(NULL, szFullPath, sizeof(szFullPath));
-	dwVerInfoSize = GetFileVersionInfoSize(szFullPath, &dwVerHnd);
+	DVerInfoSize = GetFileVersionInfoSize(szFullPath, &DVerHnd);
 
-	if (dwVerInfoSize)
+	if (DVerInfoSize)
 	{
-		LPSTR		lpstrVffInfo;
+		LPSTR		lpszVffInfo;
 		HANDLE	hMem;
-		hMem = GlobalAlloc(GMEM_MOVEABLE, dwVerInfoSize);
-		lpstrVffInfo	=	 (LPSTR)GlobalLock(hMem);
+		hMem = GlobalAlloc(GMEM_MOVEABLE, DVerInfoSize);
+		lpszVffInfo	=	 (LPSTR)GlobalLock(hMem);
 
-		GetFileVersionInfo(szFullPath, dwVerHnd, dwVerInfoSize, lpstrVffInfo);
+		GetFileVersionInfo(szFullPath, DVerHnd, DVerInfoSize, lpszVffInfo);
 		StringCchCopy(szGetName, 256, TEXT("\\VarFileInfo\\Translation"));
-		uVersionLen = 0;
-		lpVersion = NULL;
-		bRetCode = VerQueryValue((LPVOID)lpstrVffInfo, (LPWSTR)szGetName, (void **)&lpVersion, (UINT *)&uVersionLen);
+		UIVersionLen = 0;
+		lpszVersion = NULL;
+		bRetCode = VerQueryValue((LPVOID)lpszVffInfo, (LPWSTR)szGetName, (void **)&lpszVersion, (UINT *)&UIVersionLen);
 
-		if(bRetCode && uVersionLen && lpVersion)
+		if(bRetCode && UIVersionLen && lpszVersion)
 		{
-			StringCchPrintf(szResult, 256, TEXT("%04x%04x"), (WORD)(*((DWORD *)lpVersion)),(WORD)(*((DWORD *)lpVersion)>>16));
+			StringCchPrintf(szResult, 256, TEXT("%04x%04x"), (WORD)(*((DWORD *)lpszVersion)),(WORD)(*((DWORD *)lpszVersion)>>16));
 		}
 		else
 		{
@@ -79,13 +79,13 @@ TCHAR *MyVersion::GetInfo(TCHAR *InfoItem)
 		StringCchPrintf(szGetName, 256, TEXT("\\StringFileInfo\\%s\\"), szResult);
 		// Get a specific item
 		StringCchCat(szGetName, 256, InfoItem);
-		uVersionLen = 0;
-		lpVersion = nullptr;
-		bRetCode = VerQueryValue((LPVOID)lpstrVffInfo, (LPWSTR)szGetName, (void **)&lpVersion, (UINT *)&uVersionLen);
+		UIVersionLen = 0;
+		lpszVersion = nullptr;
+		bRetCode = VerQueryValue((LPVOID)lpszVffInfo, (LPWSTR)szGetName, (void **)&lpszVersion, (UINT *)&UIVersionLen);
 
-		if(bRetCode && uVersionLen && lpVersion)
+		if(bRetCode && UIVersionLen && lpszVersion)
 		{
-			StringCchCopy(szResult, 256, lpVersion);
+			StringCchCopy(szResult, 256, lpszVersion);
 		}
 		else
 		{

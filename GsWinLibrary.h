@@ -1,12 +1,12 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: GsWinLibrary.h
-// Data: 26.12.2025, 07:26
+// Data: 1.01.2026, 06:04
 
 #ifndef GSWINLIBRARY_H
 #define GSWINLIBRARY_H
 
-//#define __MYDEBUG__
+#define __MYDEBUG__
 
 #include <windows.h>
 
@@ -18,9 +18,6 @@ struct GsStoreData
 {
 	BYTE	*pBData=nullptr; // Wskaźnik na dane
 	DWORD	DDataLen=0;	 // Długość
-	#ifdef __MYDEBUG__
-		inline static int isiCleanup;
-	#endif
 
 	__fastcall ~GsStoreData() // [24-12-2025]
 	{
@@ -28,9 +25,6 @@ struct GsStoreData
 		{
 			SecureZeroMemory(this->pBData, this->DDataLen);
 			HeapFree(GetProcessHeap(), 0, this->pBData); this->pBData = nullptr;
-			#ifdef __MYDEBUG__
-				isiCleanup++;
-			#endif
 		}
 	}
 };

@@ -1,7 +1,7 @@
 ﻿// Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: MyVersion.h
-// Data: 26.12.2025, 07:26
+// Data: 1.01.2026, 06:04
 
 #ifndef MyVersionH
 #define MyVersionH

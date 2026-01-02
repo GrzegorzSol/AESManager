@@ -1,7 +1,7 @@
 // Copyright (c) Grzegorz Sołtysik
 // Nazwa projektu: AESManager
 // Nazwa pliku: GsWinLibrary.cpp
-// Data: 26.12.2025, 07:26
+// Data: 1.01.2026, 06:04
 
 #define STRICT
 #define NO_WIN32_LEAN_AND_MEAN
